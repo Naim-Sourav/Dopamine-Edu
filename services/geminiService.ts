@@ -1,14 +1,11 @@
-
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { QuizQuestion, Subject, AdmissionResult, SearchSource, ExamStandard, QuizConfig, DifficultyLevel } from "../types";
 
-// Safely retrieve API key in both Node and Browser environments
+// Safely retrieve API key in Vite Environment
 const getApiKey = () => {
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-    return process.env.API_KEY;
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+    return import.meta.env.VITE_API_KEY;
   }
-  // In a real build environment (Vite/Webpack), this would be replaced.
-  // For the sandbox, we rely on the process shim.
   return '';
 };
 
@@ -17,8 +14,6 @@ const apiKey = getApiKey();
 const getClient = () => {
   if (!apiKey) {
     console.warn("API Key is missing. AI features will not work.");
-    // We return a dummy client or handle this in the UI, but here we just proceed
-    // to allow the app to render, letting calls fail gracefully if triggered.
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -136,7 +131,6 @@ export const explainConcept = async (
   subject: Subject, 
   history: { role: string; parts: { text: string }[] }[]
 ) => {
-  // ... (Unchanged) ...
   return ""; 
 };
 
@@ -151,11 +145,9 @@ export const generateQuiz = async (
   try {
     const ai = getClient();
     
-    // Construct the prompt context
     let contextStr = "";
     let isPresetMode = false;
 
-    // Check if we have specific question counts per subject (Preset Mode)
     const distribution = configs.map(cfg => {
       if (cfg.questionCount) {
         isPresetMode = true;
@@ -189,7 +181,6 @@ export const generateQuiz = async (
     5. Add a 'subject' field to each question to indicate which subject it belongs to.
     6. IMPORTANT: Return EXACTLY ${count} questions. Do not generate more or less.`;
 
-    // Determine temperature: Use custom if provided, otherwise standard logic
     let temp = 0.4;
     if (customTemperature !== undefined) {
         temp = customTemperature;
@@ -228,7 +219,6 @@ export const generateQuiz = async (
 
     if (response.text) {
       const data = JSON.parse(cleanJsonString(response.text));
-      // STRICTLY Slice the array to return exactly 'count' questions
       const finalQuestions = (data as QuizQuestion[]);
       return finalQuestions.slice(0, count);
     }
