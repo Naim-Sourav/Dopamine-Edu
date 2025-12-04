@@ -76,8 +76,8 @@ const SynapseBot: React.FC<SynapseBotProps> = ({ isOpen, onClose }) => {
   ];
   // Securely get API key from Vite environment variable
   const getApiKey = () => {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-      return import.meta.env.VITE_API_KEY;
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
+      return (import.meta as any).env.VITE_API_KEY;
     }
     return '';
   };
