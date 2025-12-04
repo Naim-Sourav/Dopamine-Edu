@@ -1,12 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // TODO: ফোনের ব্রাউজারে GitHub এ রিপোজিটরি খোলার পর সেই নামটি এখানে 'REPO_NAME' এর বদলে লিখুন।
-  // উদাহরণ: যদি রিপোজিটরির নাম দেন 'shikkha-app', তাহলে লিখবেন: base: '/shikkha-app/',
-  base: '/Dopamine-Edu/', 
+  base: '/Dopamine-Edu/', // রিপোজিটরির নামের সাথে মিল রেখে সেট করা হয়েছে
+  resolve: {
+    alias: {
+      '@': path.resolve('./'),
+    },
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,
