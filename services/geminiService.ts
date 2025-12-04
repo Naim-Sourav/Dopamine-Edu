@@ -3,8 +3,9 @@ import { QuizQuestion, Subject, AdmissionResult, SearchSource, ExamStandard, Qui
 
 // Safely retrieve API key in Vite Environment
 const getApiKey = () => {
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-    return import.meta.env.VITE_API_KEY;
+  // Fix for TS error: Property 'env' does not exist on type 'ImportMeta'
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
+    return (import.meta as any).env.VITE_API_KEY;
   }
   return '';
 };
