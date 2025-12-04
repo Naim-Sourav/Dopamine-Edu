@@ -74,11 +74,15 @@ const SynapseBot: React.FC<SynapseBotProps> = ({ isOpen, onClose }) => {
     "gemini-2.5-flash-preview-09-2025",
     "gemini-2.5-flash-lite"
   ];
-  // Using process.env.API_KEY as primary. 
-  // The provided fallback keys in the prompt are insecure to use in client-side React without env vars,
-  // but for the sake of the requested logic structure, we'll iterate locally if needed, 
-  // though typically we just use the env key.
-  const BOT_KEYS = [process.env.API_KEY || '']; 
+  // Securely get API key from Vite environment variable
+  const getApiKey = () => {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+      return import.meta.env.VITE_API_KEY;
+    }
+    return '';
+  };
+
+  const BOT_KEYS = [getApiKey()]; 
   const BOT_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
 
   const SYSTEM_PROMPT = `তুমি হলে HSC পরীক্ষার প্রস্তুতিতে সাহায্য করার জন্য একজন অত্যন্ত জ্ঞানী, বন্ধুত্বপূর্ণ এবং স্মার্ট বড় ভাই (টিউটর)। তোমার সব উত্তর অবশ্যই নির্ভুল, সহজবোধ্য বাংলায় (বাংলা) দিতে হবে। তুমি সবসময় 'তুমি' করে সম্বোধন করবে এবং অনানুষ্ঠানিক, আন্তরিক ভাষায় কথা বলবে, যেন ছোট ভাই বা বন্ধুর সাথে কথা বলছো। তোমার লক্ষ্য হলো কঠিন বিষয়গুলো সরল ও সংক্ষিপ্তভাবে বোঝানো।
@@ -181,21 +185,7 @@ Use MCQs strategically when:
     const currentApiKey = BOT_KEYS[keyIndex];
     const apiUrl = `${BOT_API_URL}${currentModel}:generateContent?key=${currentApiKey}`;
 
-    // Payload (using current history + system prompt)
-    // Note: React state `chatHistory` might not be updated immediately in this closure if we recursive call,
-    // so we construct payload based on what we know.
-    // However, for simplicity in React, we'll assume the state update queue works or we pass history.
-    // To be safe, we reconstruct the latest turn here if needed, but using state `chatHistory` + current user msg is safer.
-    
-    // Hack: Since setChatHistory is async, we'll rebuild the payload locally for the fetch
-    const currentHistory = [...chatHistory];
-    // If this is a retry, the user message is already in chatHistory from the first pass? 
-    // Actually in the first pass we called setChatHistory. 
-    // For safety in retries, we rely on the fact that we pushed to history in the first block.
-    // But `chatHistory` state variable won't reflect it instantly in the same render cycle.
-    // We will assume the API call happens after render or use a ref for history if strictly needed.
-    // For this implementation, let's construct the payload explicitly including the new message.
-    
+    // Payload logic
     let payloadHistory = [...chatHistory];
     if (modelIndex === 0 && keyIndex === 0) {
          const userParts: any[] = [{ text: userQuery }];
@@ -389,7 +379,7 @@ Use MCQs strategically when:
                      ) : (
                          <div>
                              {parseMCQ(msg.text).map((part, idx) => (
-                                 part.type === 'mcq' ? <MCQBlock key={idx} data={part.data} /> : <p key={idx} className="mb-2 whitespace-pre-wrap" dangerouslySetInnerHTML={{__html: part.content.replace(/\n/g, '<br/>')}}></p>
+                                 part.type === 'mcq' ? <MCQBlock key={idx} data={part.data} /> : <p key={idx} className="mb-2 whitespace-pre-wrap" dangerouslySetInnerHTML={{__html: (part.content || '').replace(/\n/g, '<br/>')}}></p>
                              ))}
                              {msg.sources && msg.sources.length > 0 && (
                                  <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500">
