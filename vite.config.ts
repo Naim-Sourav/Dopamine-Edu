@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   // TODO: ফোনের ব্রাউজারে GitHub এ রিপোজিটরি খোলার পর সেই নামটি এখানে 'REPO_NAME' এর বদলে লিখুন।
   // উদাহরণ: যদি রিপোজিটরির নাম দেন 'shikkha-app', তাহলে লিখবেন: base: '/shikkha-app/',
-  base: '/REPO_NAME/', 
+  base: '/Dopamine-Edu/', 
   build: {
     outDir: 'dist',
     sourcemap: false,
