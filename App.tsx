@@ -104,7 +104,7 @@ const App: React.FC = () => {
       case AppView.EXAM_PACK:
         return <ExamPackSection />;
       case AppView.PROFILE:
-        return <ProfilePage />;
+        return <ProfilePage onNavigate={setCurrentView} />;
       case AppView.ADMIN:
         return <AdminPage />;
       case AppView.LEADERBOARD:
