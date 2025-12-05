@@ -68,6 +68,13 @@ export const fetchUserMistakesAPI = async (userId: string) => {
   return handleResponse(response, 'Failed to fetch mistakes');
 };
 
+export const deleteUserMistakeAPI = async (userId: string, mistakeId: string) => {
+  const response = await fetch(`${API_BASE}/users/${userId}/mistakes/${mistakeId}`, {
+    method: 'DELETE'
+  });
+  return handleResponse(response, 'Failed to delete mistake');
+};
+
 export const fetchLeaderboardAPI = async (): Promise<LeaderboardUser[]> => {
   const response = await fetch(`${API_BASE}/leaderboard`);
   return handleResponse(response, 'Failed to fetch leaderboard');
