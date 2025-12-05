@@ -63,6 +63,11 @@ export const fetchUserStatsAPI = async (userId: string) => {
   return handleResponse(response, 'Failed to fetch user stats');
 };
 
+export const fetchUserMistakesAPI = async (userId: string) => {
+  const response = await fetch(`${API_BASE}/users/${userId}/mistakes`);
+  return handleResponse(response, 'Failed to fetch mistakes');
+};
+
 export const fetchLeaderboardAPI = async (): Promise<LeaderboardUser[]> => {
   const response = await fetch(`${API_BASE}/leaderboard`);
   return handleResponse(response, 'Failed to fetch leaderboard');
