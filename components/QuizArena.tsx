@@ -157,21 +157,29 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
     };
     loadStats();
 
-    // Check for Mistake Exam Queue
-    const mistakeQueue = localStorage.getItem('mistake_exam_queue');
-    if (mistakeQueue) {
-        const parsedQuestions = JSON.parse(mistakeQueue);
-        if (parsedQuestions.length > 0) {
+    // Check for Mistake Exam Config from Profile Page
+    const mistakeConfig = localStorage.getItem('mistake_exam_config');
+    if (mistakeConfig) {
+        const parsedConfig = JSON.parse(mistakeConfig);
+        const parsedQuestions = parsedConfig.questions;
+        
+        if (parsedQuestions && parsedQuestions.length > 0) {
             setTabMode('MISTAKE_REVISION');
             setQuestions(parsedQuestions);
             setUserAnswers(new Array(parsedQuestions.length).fill(null));
             setCurrentQIndex(0);
-            setTimeLimit(0); // No strict limit for revision
+            
+            // Apply Settings
+            const time = parsedConfig.time || 0;
+            setTimeLimit(time);
+            setTimeLeft(time > 0 ? time * 60 : 0);
+            
+            setExamViewMode(parsedConfig.mode || 'SINGLE_PAGE');
             setNegativeMarking(0);
-            setExamViewMode('SINGLE_PAGE');
+            
             setStep('EXAM');
             // Clean up
-            localStorage.removeItem('mistake_exam_queue');
+            localStorage.removeItem('mistake_exam_config');
         }
     }
   }, []);
@@ -477,7 +485,7 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
       console.error("Failed to toggle save", e);
       if (newSet.has(index)) newSet.delete(index);
       else newSet.add(index);
-      setSavedQuestionIndices(new Set(newSet));
+      setSavedQuestionIndices(newSet);
     }
   };
 
@@ -556,21 +564,20 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
   // --- VIEWS ---
 
   if (step === 'SELECTION') {
-    // ... (Same as before)
     return (
       <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden transition-colors relative">
         <div className="flex-1 overflow-y-auto overflow-x-hidden md:flex md:flex-col">
             <div className="p-4 md:p-6 pb-0 flex-none bg-gray-50 dark:bg-gray-900">
                 <div className="hidden md:block mb-4">{renderBreadcrumbs()}</div>
-                <div className="flex bg-white dark:bg-gray-800 p-1 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm max-w-2xl mb-6 overflow-x-auto mx-auto md:mx-0">
-                   <button onClick={() => setTabMode('CUSTOM')} className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-all whitespace-nowrap ${tabMode === 'CUSTOM' ? 'bg-primary text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><Settings size={16} /> কাস্টম</button>
-                   <button onClick={() => setTabMode('PRESET')} className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-all whitespace-nowrap ${tabMode === 'PRESET' ? 'bg-primary text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><GraduationCap size={16} /> এডমিশন</button>
-                   <button onClick={() => setTabMode('PAST_PAPER')} className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-all whitespace-nowrap ${tabMode === 'PAST_PAPER' ? 'bg-primary text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><Archive size={16} /> প্রশ্ন ব্যাংক</button>
+                <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm max-w-2xl mb-6 overflow-x-auto mx-auto md:mx-0 no-scrollbar">
+                   <button onClick={() => setTabMode('CUSTOM')} className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all whitespace-nowrap ${tabMode === 'CUSTOM' ? 'bg-primary text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><Settings size={16} /> কাস্টম</button>
+                   <button onClick={() => setTabMode('PRESET')} className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all whitespace-nowrap ${tabMode === 'PRESET' ? 'bg-primary text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><GraduationCap size={16} /> এডমিশন</button>
+                   <button onClick={() => setTabMode('PAST_PAPER')} className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all whitespace-nowrap ${tabMode === 'PAST_PAPER' ? 'bg-primary text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><Archive size={16} /> প্রশ্ন ব্যাংক</button>
                 </div>
                 {(tabMode === 'CUSTOM') && (
                     <div className="flex flex-row items-center justify-between gap-4 mb-4">
                         <div><h2 className="text-lg md:text-2xl font-bold text-gray-800 dark:text-white">অধ্যায় নির্বাচন</h2><p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm mt-0.5 hidden md:block">{selectionMode === 'SINGLE' ? 'একটি অধ্যায় সিলেক্ট করুন' : 'এক বা একাধিক অধ্যায় সিলেক্ট করুন'}</p></div>
-                        <div className="flex bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm h-10"><button onClick={() => { setSelectionMode('SINGLE'); setGlobalSelection({}); }} className={`px-3 text-xs font-bold rounded-md flex items-center gap-1 transition-all ${selectionMode === 'SINGLE' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>একক</button><button onClick={() => { setSelectionMode('MULTI'); setGlobalSelection({}); }} className={`px-3 text-xs font-bold rounded-md flex items-center gap-1 transition-all ${selectionMode === 'MULTI' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>একাধিক</button></div>
+                        <div className="flex bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm h-9 md:h-10"><button onClick={() => { setSelectionMode('SINGLE'); setGlobalSelection({}); }} className={`px-3 text-xs font-bold rounded-md flex items-center gap-1 transition-all ${selectionMode === 'SINGLE' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>একক</button><button onClick={() => { setSelectionMode('MULTI'); setGlobalSelection({}); }} className={`px-3 text-xs font-bold rounded-md flex items-center gap-1 transition-all ${selectionMode === 'MULTI' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>একাধিক</button></div>
                     </div>
                 )}
             </div>
@@ -602,44 +609,44 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
                     </>
                 ) : tabMode === 'PRESET' ? (
                     <div className="p-4 md:p-6 pb-28 bg-gray-50 dark:bg-gray-900">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-                            {PRESET_DB.map(preset => (<div key={preset.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all overflow-hidden group"><div className={`p-4 border-b ${preset.color} bg-opacity-20`}><div className="flex justify-between items-start"><div><h3 className="text-xl font-bold text-gray-800 dark:text-white">{preset.title}</h3><p className="text-sm opacity-80">{preset.subtitle}</p></div><div className="p-2 bg-white/50 dark:bg-black/20 rounded-lg backdrop-blur-sm"><Trophy size={20} className="text-gray-700 dark:text-white" /></div></div></div><div className="p-6"><div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400 mb-6"><span className="flex items-center gap-1"><Clock size={14}/> {preset.duration} মিনিট</span><span className="flex items-center gap-1"><CheckSquare size={14}/> {preset.totalMarks} মার্কস</span><span className="flex items-center gap-1 text-red-500"><AlertTriangle size={14}/> -{preset.negativeMark}</span></div><div className="space-y-2 mb-6"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider"> মানবন্টন:</p><div className="flex flex-wrap gap-2">{preset.distribution.map((d, idx) => (<span key={idx} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded">{d.subject}: {d.count}</span>))}</div></div><button onClick={() => { setSelectedPreset(preset); setShowDifficultyModal(true); }} className="w-full py-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-colors flex items-center justify-center gap-2">পরীক্ষা দিন <ArrowRight size={18} /></button></div></div>))}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-5xl mx-auto">
+                            {PRESET_DB.map(preset => (<div key={preset.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all overflow-hidden group"><div className={`p-4 border-b ${preset.color} bg-opacity-20`}><div className="flex justify-between items-start"><div><h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white">{preset.title}</h3><p className="text-xs md:text-sm opacity-80">{preset.subtitle}</p></div><div className="p-2 bg-white/50 dark:bg-black/20 rounded-lg backdrop-blur-sm"><Trophy size={18} className="text-gray-700 dark:text-white" /></div></div></div><div className="p-5 md:p-6"><div className="flex gap-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-6"><span className="flex items-center gap-1"><Clock size={14}/> {preset.duration} মিনিট</span><span className="flex items-center gap-1"><CheckSquare size={14}/> {preset.totalMarks} মার্কস</span><span className="flex items-center gap-1 text-red-500"><AlertTriangle size={14}/> -{preset.negativeMark}</span></div><div className="space-y-2 mb-6"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider"> মানবন্টন:</p><div className="flex flex-wrap gap-2">{preset.distribution.map((d, idx) => (<span key={idx} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] md:text-xs rounded">{d.subject}: {d.count}</span>))}</div></div><button onClick={() => { setSelectedPreset(preset); setShowDifficultyModal(true); }} className="w-full py-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-colors flex items-center justify-center gap-2">পরীক্ষা দিন <ArrowRight size={18} /></button></div></div>))}
                         </div>
                     </div>
                 ) : (
                     // PAST PAPERS VIEW
                     <div className="p-4 md:p-6 pb-28 bg-gray-50 dark:bg-gray-900">
                         <div className="max-w-5xl mx-auto">
-                            <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">বিগত বছরের প্রশ্ন</h2>
-                                    <p className="text-gray-500 dark:text-gray-400">আসল পরীক্ষার প্রশ্ন দিয়ে নিজেকে যাচাই করো</p>
+                                    <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">বিগত বছরের প্রশ্ন</h2>
+                                    <p className="text-xs md:text-base text-gray-500 dark:text-gray-400">আসল পরীক্ষার প্রশ্ন দিয়ে নিজেকে যাচাই করো</p>
                                 </div>
-                                <div className="flex bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
-                                    <button className="px-3 py-1.5 text-xs font-bold rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white">All</button>
-                                    <button className="px-3 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700">Medical</button>
-                                    <button className="px-3 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700">Varsity</button>
+                                <div className="flex bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 w-full md:w-auto">
+                                    <button className="flex-1 md:flex-none px-3 py-1.5 text-xs font-bold rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white">All</button>
+                                    <button className="flex-1 md:flex-none px-3 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700">Medical</button>
+                                    <button className="flex-1 md:flex-none px-3 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700">Varsity</button>
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                 {PAST_PAPERS_DB.map(paper => (
                                     <div key={paper.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all group overflow-hidden">
-                                        <div className="p-6">
+                                        <div className="p-5 md:p-6">
                                             <div className="flex justify-between items-start mb-4">
                                                 <div>
                                                     <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block ${paper.source === 'Medical' ? 'bg-green-100 text-green-700' : paper.source === 'Engineering' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
                                                         {paper.source}
                                                     </span>
-                                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">{paper.title}</h3>
-                                                    <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">Session: {paper.year}</p>
+                                                    <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">{paper.title}</h3>
+                                                    <p className="text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">Session: {paper.year}</p>
                                                 </div>
                                                 <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-300">
                                                     <FileText size={20} />
                                                 </div>
                                             </div>
                                             
-                                            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 line-clamp-2">
+                                            <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-6 line-clamp-2">
                                                 {paper.description}
                                             </p>
                                             
@@ -663,7 +670,7 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
                 )}
             </div>
         </div>
-        {(tabMode === 'CUSTOM') && (<div className="fixed bottom-0 left-0 md:left-64 right-0 p-3 md:p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40 flex justify-end"><button onClick={initializeTopics} disabled={Object.keys(globalSelection).length === 0} className="w-full md:w-auto bg-primary hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-200 dark:shadow-none transition-all active:scale-95 text-sm md:text-base">পরবর্তী ধাপ <ArrowRight size={18} /></button></div>)}
+        {(tabMode === 'CUSTOM') && (<div className="fixed bottom-0 left-0 md:left-64 right-0 p-3 md:p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40 flex justify-end"><button onClick={initializeTopics} disabled={Object.keys(globalSelection).length === 0} className="w-full md:w-auto bg-primary hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white px-6 py-3 md:px-8 md:py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-200 dark:shadow-none transition-all active:scale-95 text-sm md:text-base">পরবর্তী ধাপ <ArrowRight size={18} /></button></div>)}
         {showDifficultyModal && selectedPreset && (<div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"><div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-3xl p-6 shadow-2xl border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in-95"><div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-gray-900 dark:text-white">কঠিন্য নির্বাচন করুন</h3><button onClick={() => setShowDifficultyModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><XCircle size={24} className="text-gray-400" /></button></div><div className="space-y-3">{[DifficultyLevel.EASY, DifficultyLevel.MEDIUM, DifficultyLevel.HARD].map((level) => { let color = 'bg-gray-100 hover:bg-green-100 border-transparent hover:border-green-500'; let icon = <CheckCircle size={20} />; if (level === DifficultyLevel.HARD) { color = 'bg-gray-100 hover:bg-red-100 border-transparent hover:border-red-500'; icon = <Flame size={20} />; } return (<button key={level} onClick={() => startPresetQuiz(level)} className={`w-full p-4 rounded-xl border-2 text-left flex items-center gap-4 transition-all ${color} dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600`}><div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">{icon}</div><div><p className="font-bold text-gray-800 dark:text-white">{level}</p></div></button>) })}</div></div></div>)}
       </div>
     );
@@ -671,10 +678,9 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
 
   // TOPIC CONFIG STEP
   if (step === 'TOPIC_CONFIG') {
-    // ... (Same as before)
     const subjects = Object.keys(globalSelection);
     return (
-      <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors"><div className="p-4 md:p-6 pb-2">{renderBreadcrumbs()}</div><div className="flex-1 overflow-y-auto px-4 md:px-6 pb-40"><div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8"><div className="md:col-span-2 space-y-8">{subjects.map(subject => (<div key={subject} className="space-y-4"><div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider text-xs border-b border-gray-200 dark:border-gray-700 pb-1">{getSubjectIcon(subject)} {subject}</div>{globalSelection[subject].map(chapter => { const key = `${subject}-${chapter}`; const availableTopics = SYLLABUS_DB[subject][chapter]; const selectedInChapter = topicSelection[key] || []; const isAllSelected = selectedInChapter.length === availableTopics.length; return (<div key={chapter} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm"><div className="bg-gray-50 dark:bg-gray-900/50 p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center"><h4 className="font-bold text-gray-800 dark:text-white text-sm">{chapter}</h4><button onClick={() => toggleAllTopicsInChapter(subject, chapter)} className="text-xs text-primary dark:text-green-400 font-bold hover:underline">{isAllSelected ? 'মুছুন' : 'সব'}</button></div><div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-2">{availableTopics.map(topic => { const isSelected = selectedInChapter.includes(topic); const topicQ = getStatsFor(subject, chapter, topic); return (<label key={topic} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors border ${isSelected ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800' : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700'}`}><div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary dark:bg-green-600 border-primary dark:border-green-600' : 'border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700'}`}>{isSelected && <Check size={10} className="text-white" />}</div><input type="checkbox" className="hidden" checked={isSelected} onChange={() => toggleTopic(subject, chapter, topic)}/><div className="flex-1"><span className="text-gray-700 dark:text-gray-300 text-xs font-medium line-clamp-1">{topic}</span>{renderStatsBadge(topicQ)}</div></label>) })}</div></div>) })}</div>))}</div><div className="md:col-span-1 space-y-6"><div className="md:sticky md:top-0 space-y-6"><div><h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-4"><Settings size={18} className="text-primary dark:text-green-400" /> পরীক্ষার সেটিংস</h3><div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 shadow-sm space-y-4 md:space-y-6"><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">পরীক্ষার ধরন</label><select value={examStandard} onChange={(e) => setExamStandard(e.target.value as ExamStandard)} className="w-full p-2 md:p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl font-medium text-xs md:text-sm text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary">{Object.values(ExamStandard).map(std => (<option key={std} value={std}>{std}</option>))}</select></div><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">প্রশ্ন সংখ্যা: <span className="text-primary dark:text-green-400">{questionCount}</span></label><input type="range" min="5" max="50" step="5" value={questionCount} onChange={(e) => setQuestionCount(parseInt(e.target.value))} className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary dark:accent-green-500"/><div className="flex justify-between text-xs text-gray-400 mt-1"><span>৫</span><span>৫০</span></div></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">সময় (মিনিট)</label><select value={timeLimit} onChange={(e) => setTimeLimit(parseInt(e.target.value))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-xs md:text-sm font-medium text-gray-800 dark:text-white focus:outline-none"><option value="0">কোনো লিমিট নেই</option><option value="5">৫ মিনিট</option><option value="10">১০ মিনিট</option><option value="15">১৫ মিনিট</option><option value="20">২০ মিনিট</option><option value="30">৩০ মিনিট</option><option value="45">৪৫ মিনিট</option><option value="60">১ ঘণ্টা</option></select></div><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">নেগেটিভ মার্ক</label><select value={negativeMarking} onChange={(e) => setNegativeMarking(parseFloat(e.target.value))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-xs md:text-sm font-medium text-gray-800 dark:text-white focus:outline-none"><option value="0">নেই (0)</option><option value="0.25">0.25</option><option value="0.50">0.50</option><option value="1.00">1.00</option></select></div></div><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">ভিউ মোড</label><div className="flex bg-gray-50 dark:bg-gray-700 p-1 rounded-lg"><button onClick={() => setExamViewMode('SINGLE_PAGE')} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-md text-xs font-bold transition-all ${examViewMode === 'SINGLE_PAGE' ? 'bg-white dark:bg-gray-600 shadow-sm text-primary dark:text-white' : 'text-gray-500'}`}><LayoutList size={14}/> সিঙ্গেল</button><button onClick={() => setExamViewMode('ALL_AT_ONCE')} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-md text-xs font-bold transition-all ${examViewMode === 'ALL_AT_ONCE' ? 'bg-white dark:bg-gray-600 shadow-sm text-primary dark:text-white' : 'text-gray-500'}`}><AlignJustify size={14}/> সব একসাথে</button></div></div></div></div></div></div></div></div><div className="fixed bottom-0 left-0 md:left-64 right-0 p-3 md:p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40 flex justify-between items-center transition-colors"><button onClick={() => setStep('SELECTION')} className="text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2 md:px-6 md:py-3 rounded-lg md:rounded-xl text-sm md:text-base transition-colors">আগের ধাপ</button><button onClick={startCustomQuiz} className="bg-primary hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white px-4 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-200 dark:shadow-none transition-all active:scale-95 text-sm md:text-base"><Play fill="currentColor" size={16} className="md:w-5 md:h-5" /> <span className="md:hidden">পরীক্ষা শুরু</span><span className="hidden md:inline">মডেল টেস্ট শুরু করুন</span></button></div></div>
+      <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors"><div className="p-4 md:p-6 pb-2">{renderBreadcrumbs()}</div><div className="flex-1 overflow-y-auto px-4 md:px-6 pb-40"><div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8"><div className="md:col-span-2 space-y-8">{subjects.map(subject => (<div key={subject} className="space-y-4"><div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider text-xs border-b border-gray-200 dark:border-gray-700 pb-1">{getSubjectIcon(subject)} {subject}</div>{globalSelection[subject].map(chapter => { const key = `${subject}-${chapter}`; const availableTopics = SYLLABUS_DB[subject][chapter]; const selectedInChapter = topicSelection[key] || []; const isAllSelected = selectedInChapter.length === availableTopics.length; return (<div key={chapter} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm"><div className="bg-gray-50 dark:bg-gray-900/50 p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center"><h4 className="font-bold text-gray-800 dark:text-white text-sm">{chapter}</h4><button onClick={() => toggleAllTopicsInChapter(subject, chapter)} className="text-xs text-primary dark:text-green-400 font-bold hover:underline">{isAllSelected ? 'মুছুন' : 'সব'}</button></div><div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-2">{availableTopics.map(topic => { const isSelected = selectedInChapter.includes(topic); const topicQ = getStatsFor(subject, chapter, topic); return (<label key={topic} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors border ${isSelected ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800' : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700'}`}><div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary dark:bg-green-600 border-primary dark:border-green-600' : 'border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700'}`}>{isSelected && <Check size={10} className="text-white" />}</div><input type="checkbox" className="hidden" checked={isSelected} onChange={() => toggleTopic(subject, chapter, topic)}/><div className="flex-1"><span className="text-gray-700 dark:text-gray-300 text-xs font-medium line-clamp-1">{topic}</span>{renderStatsBadge(topicQ)}</div></label>) })}</div></div>) })}</div>))}</div><div className="md:col-span-1 space-y-6"><div className="md:sticky md:top-0 space-y-6"><div><h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-4"><Settings size={18} className="text-primary dark:text-green-400" /> পরীক্ষার সেটিংস</h3><div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 shadow-sm space-y-4 md:space-y-6"><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">পরীক্ষার ধরন</label><select value={examStandard} onChange={(e) => setExamStandard(e.target.value as ExamStandard)} className="w-full p-2 md:p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl font-medium text-xs md:text-sm text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary">{Object.values(ExamStandard).map(std => (<option key={std} value={std}>{std}</option>))}</select></div><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">প্রশ্ন সংখ্যা: <span className="text-primary dark:text-green-400">{questionCount}</span></label><input type="range" min="5" max="50" step="5" value={questionCount} onChange={(e) => setQuestionCount(parseInt(e.target.value))} className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary dark:accent-green-500"/><div className="flex justify-between text-xs text-gray-400 mt-1"><span>৫</span><span>৫০</span></div></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">সময় (মিনিট)</label><select value={timeLimit} onChange={(e) => setTimeLimit(parseInt(e.target.value))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-xs md:text-sm font-medium text-gray-800 dark:text-white focus:outline-none"><option value="0">কোনো লিমিট নেই</option><option value="5">৫ মিনিট</option><option value="10">১০ মিনিট</option><option value="15">১৫ মিনিট</option><option value="20">২০ মিনিট</option><option value="30">৩০ মিনিট</option><option value="45">৪৫ মিনিট</option><option value="60">১ ঘণ্টা</option></select></div><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">নেগেটিভ মার্ক</label><select value={negativeMarking} onChange={(e) => setNegativeMarking(parseFloat(e.target.value))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-xs md:text-sm font-medium text-gray-800 dark:text-white focus:outline-none"><option value="0">নেই (0)</option><option value="0.25">0.25</option><option value="0.50">0.50</option><option value="1.00">1.00</option></select></div></div><div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">ভিউ মোড</label><div className="flex bg-gray-50 dark:bg-gray-700 p-1 rounded-lg"><button onClick={() => setExamViewMode('SINGLE_PAGE')} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-md text-xs font-bold transition-all ${examViewMode === 'SINGLE_PAGE' ? 'bg-white dark:bg-gray-600 shadow-sm text-primary dark:text-white' : 'text-gray-500'}`}><LayoutList size={14}/> সিঙ্গেল</button><button onClick={() => setExamViewMode('ALL_AT_ONCE')} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-md text-xs font-bold transition-all ${examViewMode === 'ALL_AT_ONCE' ? 'bg-white dark:bg-gray-600 shadow-sm text-primary dark:text-white' : 'text-gray-500'}`}><AlignJustify size={14}/> সব একসাথে</button></div></div></div></div></div></div></div></div><div className="fixed bottom-0 left-0 md:left-64 right-0 p-3 md:p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40 flex justify-between items-center transition-colors"><button onClick={() => setStep('SELECTION')} className="text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-3 rounded-xl text-sm md:text-base transition-colors">আগের ধাপ</button><button onClick={startCustomQuiz} className="bg-primary hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white px-6 py-3 md:px-8 md:py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-200 dark:shadow-none transition-all active:scale-95 text-sm md:text-base"><Play fill="currentColor" size={16} className="md:w-5 md:h-5" /> <span className="md:hidden">শুরু করুন</span><span className="hidden md:inline">মডেল টেস্ট শুরু করুন</span></button></div></div>
     );
   }
 
@@ -687,15 +693,15 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
   if (step === 'EXAM') {
     return (
       <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors relative">
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-3 md:py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
           <div>
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{tabMode === 'PAST_PAPER' ? 'Question Bank' : tabMode === 'MISTAKE_REVISION' ? 'Mistake Review' : selectedPreset ? selectedPreset.title : 'Custom Quiz'}</p>
+            <p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-wider">{tabMode === 'PAST_PAPER' ? 'Question Bank' : tabMode === 'MISTAKE_REVISION' ? 'Mistake Review' : selectedPreset ? selectedPreset.title : 'Custom Quiz'}</p>
             <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-primary dark:text-green-400">{examViewMode === 'SINGLE_PAGE' ? currentQIndex + 1 : userAnswers.filter(a => a !== null).length}</span><span className="text-gray-400">/ {questions.length}</span>
+              <span className="text-lg md:text-xl font-bold text-primary dark:text-green-400">{examViewMode === 'SINGLE_PAGE' ? currentQIndex + 1 : userAnswers.filter(a => a !== null).length}</span><span className="text-gray-400 text-sm md:text-base">/ {questions.length}</span>
             </div>
           </div>
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-mono font-bold ${timeLimit > 0 && timeLeft < 60 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}>
-            <Clock size={18} /> {timeLimit > 0 ? formatTime(timeLeft) : formatTime(examDuration)}
+          <div className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full font-mono font-bold text-sm md:text-base ${timeLimit > 0 && timeLeft < 60 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}>
+            <Clock size={16} className="md:w-[18px] md:h-[18px]" /> {timeLimit > 0 ? formatTime(timeLeft) : formatTime(examDuration)}
           </div>
         </div>
         
@@ -705,22 +711,22 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
           <div className="max-w-3xl mx-auto pb-20">
             {examViewMode === 'SINGLE_PAGE' ? (
               <div>
-                <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 relative">
-                  <h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white leading-relaxed pr-8">{questions[currentQIndex]?.question}</h2>
+                <div className="bg-white dark:bg-gray-800 p-5 md:p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 relative">
+                  <h2 className="text-base md:text-xl font-bold text-gray-800 dark:text-white leading-relaxed pr-8">{questions[currentQIndex]?.question}</h2>
                   <button 
                     onClick={() => toggleSaveQuestion(currentQIndex)}
-                    className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     title="Save Question"
                   >
-                    <Bookmark size={24} className={savedQuestionIndices.has(currentQIndex) ? "fill-primary text-primary" : "text-gray-400"} />
+                    <Bookmark size={20} className={`md:w-6 md:h-6 ${savedQuestionIndices.has(currentQIndex) ? "fill-primary text-primary" : "text-gray-400"}`} />
                   </button>
                 </div>
                 <div className="grid gap-3">
                   {questions[currentQIndex]?.options.map((option, idx) => (
-                    <button key={idx} onClick={() => { const newAns = [...userAnswers]; newAns[currentQIndex] = idx; setUserAnswers(newAns); }} className={`w-full p-4 rounded-xl border text-left transition-all flex items-center justify-between group ${userAnswers[currentQIndex] === idx ? 'bg-primary border-primary text-white shadow-md' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-primary/50 dark:hover:border-green-500/50 hover:bg-green-50 dark:hover:bg-gray-700'}`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-sm ${userAnswers[currentQIndex] === idx ? 'bg-white text-primary border-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600'}`}>{['A', 'B', 'C', 'D'][idx]}</div>
-                        <span className="text-base">{option}</span>
+                    <button key={idx} onClick={() => { const newAns = [...userAnswers]; newAns[currentQIndex] = idx; setUserAnswers(newAns); }} className={`w-full p-4 rounded-xl border text-left transition-all flex items-center justify-between group active:scale-[0.98] ${userAnswers[currentQIndex] === idx ? 'bg-primary border-primary text-white shadow-md' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-primary/50 dark:hover:border-green-500/50 hover:bg-green-50 dark:hover:bg-gray-700'}`}>
+                      <div className="flex items-center gap-3 md:gap-4">
+                        <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full border flex items-center justify-center font-bold text-sm ${userAnswers[currentQIndex] === idx ? 'bg-white text-primary border-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600'}`}>{['A', 'B', 'C', 'D'][idx]}</div>
+                        <span className="text-sm md:text-base">{option}</span>
                       </div>
                       {userAnswers[currentQIndex] === idx && <CheckCircle size={20} />}
                     </button>
@@ -728,24 +734,24 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-6 md:space-y-8">
                 {questions.map((q, qIdx) => (
-                  <div key={qIdx} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm relative">
+                  <div key={qIdx} className="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm relative">
                     <button 
                       onClick={() => toggleSaveQuestion(qIdx)}
-                      className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      className="absolute top-3 right-3 md:top-4 md:right-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
-                      <Bookmark size={20} className={savedQuestionIndices.has(qIdx) ? "fill-primary text-primary" : "text-gray-400"} />
+                      <Bookmark size={18} className={`md:w-5 md:h-5 ${savedQuestionIndices.has(qIdx) ? "fill-primary text-primary" : "text-gray-400"}`} />
                     </button>
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex gap-3 pr-8">
-                      <span className="text-gray-400 min-w-[24px]">{qIdx + 1}.</span>{q.question}
+                    <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-white mb-4 flex gap-2 md:gap-3 pr-8">
+                      <span className="text-gray-400 min-w-[20px] md:min-w-[24px]">{qIdx + 1}.</span>{q.question}
                     </h3>
                     <div className="grid gap-2">
                       {q.options.map((option, oIdx) => (
-                        <button key={oIdx} onClick={() => { const newAns = [...userAnswers]; newAns[qIdx] = oIdx; setUserAnswers(newAns); }} className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between ${userAnswers[qIdx] === oIdx ? 'bg-primary/10 border-primary text-primary dark:text-green-400 font-semibold' : 'bg-gray-50 dark:bg-gray-700/30 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
+                        <button key={oIdx} onClick={() => { const newAns = [...userAnswers]; newAns[qIdx] = oIdx; setUserAnswers(newAns); }} className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between active:scale-[0.98] ${userAnswers[qIdx] === oIdx ? 'bg-primary/10 border-primary text-primary dark:text-green-400 font-semibold' : 'bg-gray-50 dark:bg-gray-700/30 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                           <div className="flex items-center gap-3">
                             <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs ${userAnswers[qIdx] === oIdx ? 'bg-primary text-white border-primary' : 'border-gray-300 text-gray-400'}`}>{['A', 'B', 'C', 'D'][oIdx]}</div>
-                            <span>{option}</span>
+                            <span className="text-sm">{option}</span>
                           </div>
                         </button>
                       ))}
@@ -756,18 +762,18 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
             )}
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center z-20">
+        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
           {examViewMode === 'SINGLE_PAGE' ? (
             <>
-              <button onClick={() => setCurrentQIndex(prev => prev - 1)} disabled={currentQIndex === 0} className="px-6 py-3 rounded-xl font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">পূর্ববর্তী</button>
+              <button onClick={() => setCurrentQIndex(prev => prev - 1)} disabled={currentQIndex === 0} className="px-4 py-3 md:px-6 rounded-xl font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 text-sm md:text-base">পূর্ববর্তী</button>
               {currentQIndex === questions.length - 1 ? (
-                <button onClick={() => setShowSubmitModal(true)} className="px-8 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200 dark:shadow-none transition-all">সাবমিট করুন</button>
+                <button onClick={() => setShowSubmitModal(true)} className="px-6 py-3 md:px-8 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200 dark:shadow-none transition-all text-sm md:text-base">সাবমিট করুন</button>
               ) : (
-                <button onClick={() => setCurrentQIndex(prev => prev + 1)} className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-green-700 shadow-lg shadow-green-200 dark:shadow-none transition-all flex items-center gap-2">পরবর্তী <ChevronRight size={18} /></button>
+                <button onClick={() => setCurrentQIndex(prev => prev + 1)} className="px-6 py-3 md:px-8 bg-primary text-white rounded-xl font-bold hover:bg-green-700 shadow-lg shadow-green-200 dark:shadow-none transition-all flex items-center gap-2 text-sm md:text-base">পরবর্তী <ChevronRight size={18} /></button>
               )}
             </>
           ) : (
-            <button onClick={() => setShowSubmitModal(true)} className="w-full max-w-md mx-auto px-8 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200 dark:shadow-none transition-all">সাবমিট করুন ({userAnswers.filter(a => a !== null).length}/{questions.length})</button>
+            <button onClick={() => setShowSubmitModal(true)} className="w-full max-w-md mx-auto px-8 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200 dark:shadow-none transition-all text-sm md:text-base">সাবমিট করুন ({userAnswers.filter(a => a !== null).length}/{questions.length})</button>
           )}
         </div>
         {showSubmitModal && (<div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"><div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in-95"><div className="text-center mb-6"><div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4"><HelpCircle size={32} /></div><h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">আপনি কি নিশ্চিত?</h3><p className="text-gray-500 dark:text-gray-400 text-sm">আপনি {questions.length} টির মধ্যে {userAnswers.filter(a => a !== null).length} টি প্রশ্নের উত্তর দিয়েছেন। পরীক্ষা শেষ করতে চাইলে 'সাবমিট' বাটনে ক্লিক করুন।</p></div><div className="flex gap-3"><button onClick={() => setShowSubmitModal(false)} className="flex-1 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">ফিরে যান</button><button onClick={submitExam} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 shadow-lg shadow-red-200 dark:shadow-none transition-colors">সাবমিট</button></div></div></div>)}
@@ -800,48 +806,48 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
 
     return (
       <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 md:p-8 transition-colors">
-         <div className="max-w-5xl mx-auto space-y-8">
+         <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 pb-20">
             
             {/* Score Card with Pie Chart */}
-            <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 md:p-10 shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-8">
-               <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 md:p-10 shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-6 md:gap-8">
+               <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
                    {/* Left: Score Text */}
-                   <div className="text-center md:text-left flex-1">
-                       <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full font-bold text-sm mb-4">
+                   <div className="text-center md:text-left flex-1 w-full">
+                       <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full font-bold text-xs md:text-sm mb-4">
                           <Trophy size={16} fill="currentColor" /> ফলাফল
                        </div>
-                       <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-2">
-                          {finalScore.toFixed(2)} <span className="text-2xl text-gray-400 dark:text-gray-500 font-medium">/ {questions.length}</span>
+                       <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-2">
+                          {finalScore.toFixed(2)} <span className="text-xl md:text-2xl text-gray-400 dark:text-gray-500 font-medium">/ {questions.length}</span>
                        </h1>
                        
                        {/* Explicit Stats Display */}
-                       <div className="flex flex-wrap justify-center md:justify-start gap-4 my-6">
-                           <div className="text-center px-4 py-2 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-800">
-                               <span className="block text-2xl font-bold text-green-600 dark:text-green-400">{correctCount}</span>
+                       <div className="flex flex-wrap justify-center md:justify-start gap-3 md:gap-4 my-4 md:my-6">
+                           <div className="text-center px-3 py-2 md:px-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-800 flex-1 md:flex-none min-w-[80px]">
+                               <span className="block text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">{correctCount}</span>
                                <span className="text-xs text-green-700 dark:text-green-300 font-medium">সঠিক</span>
                            </div>
-                           <div className="text-center px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-800">
-                               <span className="block text-2xl font-bold text-red-600 dark:text-red-400">{wrongCount}</span>
+                           <div className="text-center px-3 py-2 md:px-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-800 flex-1 md:flex-none min-w-[80px]">
+                               <span className="block text-xl md:text-2xl font-bold text-red-600 dark:text-red-400">{wrongCount}</span>
                                <span className="text-xs text-red-700 dark:text-red-300 font-medium">ভুল</span>
                            </div>
-                           <div className="text-center px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                               <span className="block text-2xl font-bold text-gray-600 dark:text-gray-300">{skippedCount}</span>
+                           <div className="text-center px-3 py-2 md:px-4 bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 flex-1 md:flex-none min-w-[80px]">
+                               <span className="block text-xl md:text-2xl font-bold text-gray-600 dark:text-gray-300">{skippedCount}</span>
                                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">স্কিপড</span>
                            </div>
                        </div>
 
-                       <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg">
-                             <Clock size={16} /> সময়: {formatTime(examDuration)}
+                       <div className="flex flex-wrap gap-2 md:gap-4 justify-center md:justify-start">
+                          <div className="flex items-center gap-2 text-xs md:text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg">
+                             <Clock size={14} className="md:w-4 md:h-4" /> সময়: {formatTime(examDuration)}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 rounded-lg font-medium">
-                             <AlertTriangle size={16} /> পেনাল্টি: -{penalty.toFixed(2)}
+                          <div className="flex items-center gap-2 text-xs md:text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 rounded-lg font-medium">
+                             <AlertTriangle size={14} className="md:w-4 md:h-4" /> পেনাল্টি: -{penalty.toFixed(2)}
                           </div>
                        </div>
                    </div>
 
                    {/* Right: Pie Chart */}
-                   <div className="relative w-48 h-48 md:w-56 md:h-56 shrink-0">
+                   <div className="relative w-40 h-40 md:w-56 md:h-56 shrink-0">
                        <div 
                          className="w-full h-full rounded-full"
                          style={{
@@ -852,48 +858,48 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
                             )`
                          }}
                        ></div>
-                       <div className="absolute inset-4 bg-white dark:bg-gray-800 rounded-full flex flex-col items-center justify-center shadow-inner">
-                          <span className="text-3xl font-bold text-gray-800 dark:text-white">{percentage}%</span>
-                          <span className="text-xs text-gray-500 uppercase font-bold">Accuracy</span>
+                       <div className="absolute inset-3 md:inset-4 bg-white dark:bg-gray-800 rounded-full flex flex-col items-center justify-center shadow-inner">
+                          <span className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">{percentage}%</span>
+                          <span className="text-[10px] md:text-xs text-gray-500 uppercase font-bold">Accuracy</span>
                        </div>
                    </div>
                </div>
 
                {/* Top Actions Buttons (Moved Inside Card) */}
-               <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-100 dark:border-gray-700">
+               <div className="flex flex-col md:flex-row gap-3 md:gap-4 pt-6 border-t border-gray-100 dark:border-gray-700">
                     <button 
                       onClick={resetAll}
-                      className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                      className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors text-sm md:text-base"
                     >
-                       <RefreshCw size={20} /> আবার দিন
+                       <RefreshCw size={18} className="md:w-5 md:h-5" /> আবার দিন
                     </button>
                     <button 
                       onClick={goHome}
-                      className="flex-1 px-8 py-3 bg-primary hover:bg-green-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-900/20"
+                      className="flex-1 px-8 py-3 bg-primary hover:bg-green-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-900/20 text-sm md:text-base"
                     >
-                       <Home size={20} /> হোম পেজে যান
+                       <Home size={18} className="md:w-5 md:h-5" /> হোম পেজে যান
                     </button>
                </div>
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex flex-wrap gap-2 justify-center md:justify-start bg-white dark:bg-gray-800 p-2 rounded-xl border border-gray-200 dark:border-gray-700 w-fit mx-auto md:mx-0">
-               <button onClick={() => setReviewFilter('ALL')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${reviewFilter === 'ALL' ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-md' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                  <LayoutList size={16} /> সব ({questions.length})
+            <div className="flex flex-wrap gap-2 justify-center md:justify-start bg-white dark:bg-gray-800 p-2 rounded-xl border border-gray-200 dark:border-gray-700 w-full md:w-fit mx-auto md:mx-0 overflow-x-auto no-scrollbar">
+               <button onClick={() => setReviewFilter('ALL')} className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${reviewFilter === 'ALL' ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-md' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                  <LayoutList size={14} className="md:w-4 md:h-4" /> সব ({questions.length})
                </button>
-               <button onClick={() => setReviewFilter('CORRECT')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${reviewFilter === 'CORRECT' ? 'bg-green-100 text-green-700 border border-green-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                  <CheckCircle size={16} /> সঠিক ({correctCount})
+               <button onClick={() => setReviewFilter('CORRECT')} className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${reviewFilter === 'CORRECT' ? 'bg-green-100 text-green-700 border border-green-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                  <CheckCircle size={14} className="md:w-4 md:h-4" /> সঠিক ({correctCount})
                </button>
-               <button onClick={() => setReviewFilter('WRONG')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${reviewFilter === 'WRONG' ? 'bg-red-100 text-red-700 border border-red-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                  <XCircle size={16} /> ভুল ({wrongCount})
+               <button onClick={() => setReviewFilter('WRONG')} className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${reviewFilter === 'WRONG' ? 'bg-red-100 text-red-700 border border-red-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                  <XCircle size={14} className="md:w-4 md:h-4" /> ভুল ({wrongCount})
                </button>
-               <button onClick={() => setReviewFilter('SKIPPED')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${reviewFilter === 'SKIPPED' ? 'bg-gray-200 text-gray-700 border border-gray-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                  <MinusCircle size={16} /> স্কিপড ({skippedCount})
+               <button onClick={() => setReviewFilter('SKIPPED')} className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${reviewFilter === 'SKIPPED' ? 'bg-gray-200 text-gray-700 border border-gray-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                  <MinusCircle size={14} className="md:w-4 md:h-4" /> স্কিপড ({skippedCount})
                </button>
             </div>
 
             {/* Questions List */}
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6">
                {filteredQuestions.length === 0 ? (
                   <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
                      <p className="text-gray-400 font-medium">এই ক্যাটাগরিতে কোনো প্রশ্ন নেই</p>
@@ -905,30 +911,30 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
                     const isWrong = !isCorrect && !isSkipped;
                     
                     return (
-                      <div key={idx} className={`bg-white dark:bg-gray-800 rounded-2xl p-6 border shadow-sm transition-all relative ${isCorrect ? 'border-green-200 dark:border-green-900/50' : isSkipped ? 'border-gray-200 dark:border-gray-700' : 'border-red-200 dark:border-red-900/50'}`}>
+                      <div key={idx} className={`bg-white dark:bg-gray-800 rounded-2xl p-5 md:p-6 border shadow-sm transition-all relative ${isCorrect ? 'border-green-200 dark:border-green-900/50' : isSkipped ? 'border-gray-200 dark:border-gray-700' : 'border-red-200 dark:border-red-900/50'}`}>
                          
                          <button 
                             onClick={() => toggleSaveQuestion(idx)}
-                            className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10"
+                            className="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10"
                             title="Save Question"
                          >
-                            <Bookmark size={20} className={savedQuestionIndices.has(idx) ? "fill-primary text-primary" : "text-gray-400"} />
+                            <Bookmark size={18} className={`md:w-5 md:h-5 ${savedQuestionIndices.has(idx) ? "fill-primary text-primary" : "text-gray-400"}`} />
                          </button>
 
                          <div className="flex items-start gap-3 mb-4 pr-10">
-                             <div className={`min-w-[28px] h-7 flex items-center justify-center rounded-lg text-xs font-bold text-white ${isCorrect ? 'bg-green-500' : isSkipped ? 'bg-gray-400' : 'bg-red-500'}`}>
+                             <div className={`min-w-[24px] h-6 md:min-w-[28px] md:h-7 flex items-center justify-center rounded-lg text-xs font-bold text-white mt-1 ${isCorrect ? 'bg-green-500' : isSkipped ? 'bg-gray-400' : 'bg-red-500'}`}>
                                 {idx + 1}
                              </div>
                              <div className="flex-1">
-                                <div className="flex gap-2 mb-2">
+                                <div className="flex flex-wrap gap-2 mb-2">
                                     <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500">{q.subject}</span>
                                     {q.topic && <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-[10px] font-bold text-blue-500">{q.topic}</span>}
                                 </div>
-                                <h4 className="font-bold text-gray-800 dark:text-white leading-relaxed text-lg">{q.question}</h4>
-                                <div className="flex items-center gap-2 mt-2">
-                                   {isCorrect && <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">সঠিক উত্তর</span>}
-                                   {isWrong && <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">ভুল উত্তর</span>}
-                                   {isSkipped && <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">উত্তর করা হয়নি</span>}
+                                <h4 className="font-bold text-gray-800 dark:text-white leading-relaxed text-base md:text-lg">{q.question}</h4>
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                   {isCorrect && <span className="text-[10px] md:text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">সঠিক উত্তর</span>}
+                                   {isWrong && <span className="text-[10px] md:text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">ভুল উত্তর</span>}
+                                   {isSkipped && <span className="text-[10px] md:text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">উত্তর করা হয়নি</span>}
                                 </div>
                              </div>
                          </div>
@@ -957,7 +963,7 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
                               )
                            })}
                          </div>
-                         <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-sm text-gray-700 dark:text-gray-300 border border-blue-100 dark:border-blue-800/50">
+                         <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl text-xs md:text-sm text-gray-700 dark:text-gray-300 border border-blue-100 dark:border-blue-800/50">
                             <span className="font-bold text-blue-600 dark:text-blue-400 block mb-1 flex items-center gap-1"><BookOpen size={14}/> ব্যাখ্যা:</span>
                             {q.explanation || 'কোনো ব্যাখ্যা নেই।'}
                          </div>
