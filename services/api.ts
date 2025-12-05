@@ -217,20 +217,20 @@ export const fetchExamPacksAPI = async (): Promise<ExamPack[]> => {
 
 // --- BATTLE API UPDATED ---
 
-export const createBattleRoom = async (userId: string, userName: string, avatar: string, college: string, config: any) => {
+export const createBattleRoom = async (userId: string, userName: string, avatar: string, config: any) => {
   const response = await fetch(`${API_BASE}/battles/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, userName, avatar, college, config })
+    body: JSON.stringify({ userId, userName, avatar, config })
   });
   return handleResponse(response, 'Create room failed');
 };
 
-export const joinBattleRoom = async (roomId: string, userId: string, userName: string, avatar: string, college: string) => {
+export const joinBattleRoom = async (roomId: string, userId: string, userName: string, avatar: string) => {
   const response = await fetch(`${API_BASE}/battles/join`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ roomId, userId, userName, avatar, college })
+    body: JSON.stringify({ roomId, userId, userName, avatar })
   });
   return handleResponse(response, 'Join room failed');
 };
@@ -249,11 +249,11 @@ export const getBattleState = async (roomId: string) => {
   return handleResponse(response, 'Fetch battle failed');
 };
 
-export const submitBattleAnswer = async (roomId: string, userId: string, questionIndex: number, selectedOption: number, timeTaken: number) => {
+export const submitBattleAnswer = async (roomId: string, userId: string, isCorrect: boolean) => {
   const response = await fetch(`${API_BASE}/battles/${roomId}/answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, questionIndex, selectedOption, timeTaken })
+    body: JSON.stringify({ userId, isCorrect })
   });
   return handleResponse(response, 'Submit answer failed');
 };
