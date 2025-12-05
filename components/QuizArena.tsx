@@ -98,7 +98,7 @@ const PRESET_DB: Preset[] = [
 type QuizStep = 'SELECTION' | 'TOPIC_CONFIG' | 'LOADING' | 'EXAM' | 'RESULT';
 type SelectionMode = 'SINGLE' | 'MULTI';
 type ExamViewMode = 'SINGLE_PAGE' | 'ALL_AT_ONCE';
-type TabMode = 'CUSTOM' | 'PRESET' | 'PAST_PAPER';
+type TabMode = 'CUSTOM' | 'PRESET' | 'PAST_PAPER' | 'MISTAKE_REVISION';
 
 interface QuizArenaProps {
   onNavigate?: (view: AppView) => void;
@@ -156,12 +156,31 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
       }
     };
     loadStats();
+
+    // Check for Mistake Exam Queue
+    const mistakeQueue = localStorage.getItem('mistake_exam_queue');
+    if (mistakeQueue) {
+        const parsedQuestions = JSON.parse(mistakeQueue);
+        if (parsedQuestions.length > 0) {
+            setTabMode('MISTAKE_REVISION');
+            setQuestions(parsedQuestions);
+            setUserAnswers(new Array(parsedQuestions.length).fill(null));
+            setCurrentQIndex(0);
+            setTimeLimit(0); // No strict limit for revision
+            setNegativeMarking(0);
+            setExamViewMode('SINGLE_PAGE');
+            setStep('EXAM');
+            // Clean up
+            localStorage.removeItem('mistake_exam_queue');
+        }
+    }
   }, []);
 
   // --- ACTIONS ---
 
   const resetAll = () => {
     setStep('SELECTION');
+    setTabMode('CUSTOM');
     setGlobalSelection({});
     setTopicSelection({});
     setQuestions([]);
@@ -388,15 +407,20 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
     const rawScore = correctCount - penalty;
     const finalScore = Math.max(0, rawScore);
 
-    // Calculate Topic-wise Stats
+    // Calculate Topic-wise Stats & Identify Mistakes
     const topicStats: { [topic: string]: { correct: number, total: number } } = {};
+    const mistakes: QuizQuestion[] = [];
     
     questions.forEach((q, idx) => {
         const topic = q.topic || 'General';
         if (!topicStats[topic]) topicStats[topic] = { correct: 0, total: 0 };
         topicStats[topic].total += 1;
+        
         if (userAnswers[idx] === q.correctAnswerIndex) {
             topicStats[topic].correct += 1;
+        } else if (userAnswers[idx] !== null) {
+            // Wrong answer found
+            mistakes.push(q);
         }
     });
 
@@ -406,7 +430,7 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
         total: topicStats[t].total
     }));
 
-    // Save Result to DB
+    // Save Result to DB (Including Mistakes)
     if (currentUser) {
         try {
             await saveExamResultAPI(currentUser.uid, {
@@ -416,7 +440,8 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
                 wrong: wrongCount,
                 skipped: skippedCount,
                 score: finalScore,
-                topicStats: topicStatsArray
+                topicStats: topicStatsArray,
+                mistakes: mistakes // Sending mistakes to backend
             });
         } catch (e) {
             console.error("Failed to save result", e);
@@ -517,7 +542,7 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
        </button>
        <ChevronRight size={14} />
        <span className={step === 'SELECTION' ? 'text-primary dark:text-green-400 font-bold' : ''}>
-         {tabMode === 'CUSTOM' ? 'অধ্যায় নির্বাচন' : tabMode === 'PAST_PAPER' ? 'প্রশ্ন ব্যাংক' : 'প্রিসেট নির্বাচন'}
+         {tabMode === 'CUSTOM' ? 'অধ্যায় নির্বাচন' : tabMode === 'PAST_PAPER' ? 'প্রশ্ন ব্যাংক' : tabMode === 'MISTAKE_REVISION' ? 'Mistake Review' : 'প্রিসেট নির্বাচন'}
        </span>
        {step === 'TOPIC_CONFIG' && (
            <>
@@ -664,7 +689,7 @@ const QuizArena: React.FC<QuizArenaProps> = ({ onNavigate }) => {
       <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors relative">
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
           <div>
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{tabMode === 'PAST_PAPER' ? 'Question Bank' : selectedPreset ? selectedPreset.title : 'Custom Quiz'}</p>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{tabMode === 'PAST_PAPER' ? 'Question Bank' : tabMode === 'MISTAKE_REVISION' ? 'Mistake Review' : selectedPreset ? selectedPreset.title : 'Custom Quiz'}</p>
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold text-primary dark:text-green-400">{examViewMode === 'SINGLE_PAGE' ? currentQIndex + 1 : userAnswers.filter(a => a !== null).length}</span><span className="text-gray-400">/ {questions.length}</span>
             </div>
