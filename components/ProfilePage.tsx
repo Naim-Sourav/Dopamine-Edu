@@ -1,8 +1,23 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, EnrolledCourse } from '../contexts/AuthContext';
-import { fetchSavedQuestionsAPI, deleteSavedQuestionAPI, fetchUserStatsAPI } from '../services/api';
-import { User, Mail, BookOpen, Edit2, Check, X, Camera, Award, Calendar, Bookmark, Trash2, ChevronRight, LayoutGrid, List, TrendingUp, BarChart2, AlertCircle, Zap, Filter, GraduationCap, Briefcase, Target, PieChart, Layers } from 'lucide-react';
+import { fetchSavedQuestionsAPI, deleteSavedQuestionAPI, fetchUserStatsAPI, fetchUserMistakesAPI } from '../services/api';
+import { User, Mail, BookOpen, Edit2, Check, X, Camera, Award, Calendar, Bookmark, Trash2, ChevronRight, LayoutGrid, List, TrendingUp, BarChart2, AlertCircle, Zap, Filter, GraduationCap, Briefcase, Target, PieChart, Layers, RefreshCw, AlertTriangle } from 'lucide-react';
+import { AppView } from '../types';
+
+// Assuming onNavigate is passed if this component is used in a way that allows navigation switching.
+// If strictly used inside App.tsx which controls view, we might need a way to switch view.
+// Since ProfilePage doesn't receive props in the current routing setup in App.tsx (it's just <ProfilePage />),
+// we will use window.location.reload approach or just localStorage + alert to instruct user to go to Quiz.
+// Ideally, App.tsx should pass a navigator. 
+// However, looking at App.tsx, ProfilePage is rendered without props. 
+// To fix this without changing App.tsx signature too much, we can use a custom event or just modify App.tsx slightly later?
+// Wait, I can assume ProfilePage might have access to a global navigation context if I created one, but I didn't.
+// Let's use a simple Hack: Reload page with a query param or just LocalStorage queue and user manually goes to Quiz.
+// BETTER: I will assume the parent passes onNavigate, but since the existing code doesn't show it passed, 
+// I will modify the 'Retake' action to save to localStorage and show an alert "Go to Quiz Page to start".
+// OR, I can force a reload to home/quiz if I can't access state setter.
+// Actually, let's just use localStorage and tell user to go to Quiz page.
 
 const AVATARS = [
   'https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=b6e3f4',
@@ -20,7 +35,7 @@ const AVATARS = [
 const ProfilePage: React.FC = () => {
   const { currentUser, userAvatar, enrolledCourses, extendedProfile, updateUserProfile } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'INFO' | 'COURSES' | 'SAVED'>('INFO');
+  const [activeTab, setActiveTab] = useState<'INFO' | 'COURSES' | 'SAVED' | 'MISTAKES'>('INFO');
   
   // Profile Edit State
   const [isEditing, setIsEditing] = useState(false);
@@ -42,6 +57,10 @@ const ProfilePage: React.FC = () => {
   // Saved Questions State
   const [savedQuestions, setSavedQuestions] = useState<any[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
+
+  // Mistakes State
+  const [mistakes, setMistakes] = useState<any[]>([]);
+  const [loadingMistakes, setLoadingMistakes] = useState(false);
   
   // Filter State
   const [filterSubject, setFilterSubject] = useState<string>('ALL');
@@ -60,6 +79,9 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'SAVED' && currentUser) {
       loadSavedQuestions();
+    }
+    if (activeTab === 'MISTAKES' && currentUser) {
+      loadMistakes();
     }
   }, [activeTab, currentUser]);
 
@@ -92,6 +114,19 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const loadMistakes = async () => {
+    if (!currentUser) return;
+    setLoadingMistakes(true);
+    try {
+      const data = await fetchUserMistakesAPI(currentUser.uid);
+      setMistakes(data);
+    } catch (e) {
+      console.error("Failed to load mistakes", e);
+    } finally {
+      setLoadingMistakes(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
@@ -120,6 +155,26 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const startMistakeExam = () => {
+    if (mistakes.length === 0) return;
+    
+    // Store mistakes in localStorage to be picked up by QuizArena
+    // We sanitize them to match QuizQuestion format
+    const examQuestions = mistakes.map(m => ({
+        question: m.question,
+        options: m.options,
+        correctAnswerIndex: m.correctAnswerIndex,
+        explanation: m.explanation,
+        subject: m.subject,
+        chapter: m.chapter,
+        topic: m.topic
+    }));
+
+    localStorage.setItem('mistake_exam_queue', JSON.stringify(examQuestions));
+    alert("ভুল করা প্রশ্নগুলো এক্সামের জন্য প্রস্তুত। দয়া করে 'কুইজ চ্যালেঞ্জ' পেজে যান এবং 'স্টার্ট' করুন।");
+    // Ideally we would navigate here, but we lack the prop.
+  };
+
   // Gamification Level Logic
   const getLevel = (points: number) => {
     if (points < 100) return { name: 'Novice', color: 'bg-gray-400' };
@@ -131,8 +186,7 @@ const ProfilePage: React.FC = () => {
 
   const currentLevel = getLevel(stats?.points || 0);
 
-  // --- Filtering Logic ---
-  
+  // --- Filtering Logic for Saved Questions ---
   const uniqueSubjects = useMemo(() => {
     const subjects = new Set<string>();
     savedQuestions.forEach(sq => {
@@ -331,22 +385,24 @@ const ProfilePage: React.FC = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex p-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-fit mx-auto md:mx-0">
-           <button onClick={() => setActiveTab('INFO')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'INFO' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
+        <div className="flex p-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-fit mx-auto md:mx-0 overflow-x-auto">
+           <button onClick={() => setActiveTab('INFO')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'INFO' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
               <LayoutGrid size={16} /> Analysis
            </button>
-           <button onClick={() => setActiveTab('COURSES')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'COURSES' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
+           <button onClick={() => setActiveTab('COURSES')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'COURSES' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
               <BookOpen size={16} /> Courses
            </button>
-           <button onClick={() => setActiveTab('SAVED')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'SAVED' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
+           <button onClick={() => setActiveTab('SAVED')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'SAVED' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
               <Bookmark size={16} /> Saved
+           </button>
+           <button onClick={() => setActiveTab('MISTAKES')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'MISTAKES' ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'text-gray-500 hover:text-red-600 dark:hover:text-red-400'}`}>
+              <AlertTriangle size={16} /> Mistakes
            </button>
         </div>
 
         {/* TAB CONTENT: INFO (Dashboard Stats) */}
         {activeTab === 'INFO' && stats && (
             <div className="space-y-6 animate-in fade-in">
-               
                {/* Quick Stats Grid */}
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                    <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm text-center">
@@ -466,6 +522,67 @@ const ProfilePage: React.FC = () => {
                  <div className="text-center py-10 text-gray-500 dark:text-gray-400">
                     <p>You are not enrolled in any courses yet.</p>
                  </div>
+               )}
+            </div>
+        )}
+
+        {/* TAB CONTENT: MISTAKES */}
+        {activeTab === 'MISTAKES' && (
+            <div className="space-y-6 animate-in fade-in">
+               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                   <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <AlertTriangle size={24} className="text-red-500" /> Mistake Log ({mistakes.length})
+                   </h2>
+                   
+                   {mistakes.length > 0 && (
+                       <button 
+                         onClick={startMistakeExam}
+                         className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-red-700 shadow-lg shadow-red-200 dark:shadow-none transition-all"
+                       >
+                          <RefreshCw size={18} /> Retake Wrong Answers
+                       </button>
+                   )}
+               </div>
+
+               {loadingMistakes ? (
+                  <div className="text-center py-12 text-gray-500">Loading mistakes...</div>
+               ) : mistakes.length === 0 ? (
+                  <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-500">
+                     <p>Great job! You don't have any recorded mistakes yet.</p>
+                  </div>
+               ) : (
+                  <div className="space-y-4">
+                     {mistakes.map((m) => (
+                        <div key={m._id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-red-100 dark:border-red-900/30 shadow-sm relative">
+                           <div className="absolute top-4 right-4 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
+                              Missed {m.wrongCount} times
+                           </div>
+                           
+                           <div className="flex flex-wrap gap-2 mb-3">
+                               {m.subject && <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded font-bold text-gray-600 dark:text-gray-300">{m.subject}</span>}
+                               {m.topic && <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs rounded font-bold">{m.topic}</span>}
+                           </div>
+
+                           <h3 className="font-bold text-gray-800 dark:text-white mb-4 pr-20 text-lg">{m.question}</h3>
+                           
+                           <div className="grid sm:grid-cols-2 gap-2 mb-4">
+                              {m.options.map((opt: string, idx: number) => (
+                                 <div key={idx} className={`p-3 rounded-lg border text-sm flex items-center gap-2 ${idx === m.correctAnswerIndex ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 font-medium' : 'border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900'}`}>
+                                    <span className="opacity-50 text-xs font-mono min-w-[20px]">({['A','B','C','D'][idx]})</span> 
+                                    <span>{opt}</span>
+                                    {idx === m.correctAnswerIndex && <Check size={16} className="ml-auto text-green-500" />}
+                                 </div>
+                              ))}
+                           </div>
+
+                           {m.explanation && (
+                              <div className="p-4 bg-red-50 dark:bg-red-900/10 rounded-xl text-sm text-gray-700 dark:text-gray-300 border border-red-100 dark:border-red-800/50">
+                                 <span className="font-bold block mb-1 text-red-600 dark:text-red-400 flex items-center gap-1"><BookOpen size={14}/> ব্যাখ্যা:</span> {m.explanation}
+                              </div>
+                           )}
+                        </div>
+                     ))}
+                  </div>
                )}
             </div>
         )}
