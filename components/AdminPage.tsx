@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAdmin } from '../contexts/AdminContext';
-import { Check, X, Search, Trash2, Calendar, User, Phone, CreditCard, ShieldCheck, Filter, Users, DollarSign, Bell, Send, BarChart3, TrendingUp, AlertCircle, Database, ChevronLeft, ChevronRight, Layers, BookOpen, Activity, FileText } from 'lucide-react';
+import { Check, X, Search, Trash2, Calendar, User, Phone, CreditCard, ShieldCheck, Filter, Users, DollarSign, Bell, Send, BarChart3, TrendingUp, AlertCircle, Database, ChevronLeft, ChevronRight, Layers, BookOpen, Activity, FileText, Wrench } from 'lucide-react';
 import AdminQuestionGenerator from './AdminQuestionGenerator';
-import { fetchQuestionsFromBankAPI, deleteQuestionFromBankAPI } from '../services/api';
+import { fetchQuestionsFromBankAPI, deleteQuestionFromBankAPI, fetchTaxonomyAPI, renameSubjectAPI, deleteSubjectAPI } from '../services/api';
 import { SYLLABUS_DB } from '../services/syllabusData';
 
 const AdminPage: React.FC = () => {
   const { paymentRequests, stats, approvePayment, rejectPayment, deletePaymentRequest, sendNotification, refreshRequests } = useAdmin();
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'PAYMENTS' | 'NOTIFICATIONS' | 'Q_BANK' | 'DATABASE'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'PAYMENTS' | 'NOTIFICATIONS' | 'Q_BANK' | 'DATABASE' | 'MAINTENANCE'>('DASHBOARD');
   
   // Payment Filters
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
@@ -28,6 +28,12 @@ const AdminPage: React.FC = () => {
   const [qChapter, setQChapter] = useState('');
   const [loadingQuestions, setLoadingQuestions] = useState(false);
 
+  // Maintenance State
+  const [dbSubjects, setDbSubjects] = useState<string[]>([]);
+  const [renameTarget, setRenameTarget] = useState('');
+  const [newName, setNewName] = useState('');
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+
   useEffect(() => {
       // Auto refresh on mount
       refreshRequests();
@@ -39,6 +45,22 @@ const AdminPage: React.FC = () => {
         loadQuestions();
     }
   }, [activeTab, qPage, qSubject, qChapter]);
+
+  // Load DB Taxonomy only for Maintenance
+  useEffect(() => {
+      if (activeTab === 'MAINTENANCE') {
+          loadDbTaxonomy();
+      }
+  }, [activeTab]);
+
+  const loadDbTaxonomy = async () => {
+      try {
+          const data = await fetchTaxonomyAPI();
+          setDbSubjects(data.subjects);
+      } catch (error) {
+          console.error("Failed to load taxonomy", error);
+      }
+  };
 
   const loadQuestions = async () => {
       setLoadingQuestions(true);
@@ -60,6 +82,38 @@ const AdminPage: React.FC = () => {
           setQuestions(prev => prev.filter(q => q._id !== id));
       } catch (e) {
           alert("Failed to delete");
+      }
+  };
+
+  const handleRenameSubject = async () => {
+      if (!renameTarget || !newName) return;
+      if (!confirm(`Are you sure you want to rename ALL questions from "${renameTarget}" to "${newName}"?`)) return;
+      
+      setMaintenanceLoading(true);
+      try {
+          await renameSubjectAPI(renameTarget, newName);
+          alert("Rename successful!");
+          setRenameTarget('');
+          setNewName('');
+          loadDbTaxonomy(); // Refresh list
+      } catch (e) {
+          alert("Failed to rename");
+      } finally {
+          setMaintenanceLoading(false);
+      }
+  };
+
+  const handleDeleteSubject = async (subject: string) => {
+      if (!confirm(`DANGER: Are you sure you want to delete ALL questions for "${subject}"? This cannot be undone.`)) return;
+      setMaintenanceLoading(true);
+      try {
+          await deleteSubjectAPI(subject);
+          alert("Deleted successfully");
+          loadDbTaxonomy();
+      } catch (e) {
+          alert("Failed to delete");
+      } finally {
+          setMaintenanceLoading(false);
       }
   };
 
@@ -136,6 +190,9 @@ const AdminPage: React.FC = () => {
                    </button>
                    <button onClick={() => setActiveTab('DATABASE')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'DATABASE' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                       <Layers size={16} /> Viewer
+                   </button>
+                   <button onClick={() => setActiveTab('MAINTENANCE')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'MAINTENANCE' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                      <Wrench size={16} /> Maintenance
                    </button>
                    <button onClick={() => setActiveTab('NOTIFICATIONS')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'NOTIFICATIONS' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                       <Bell size={16} /> নোটিফিকেশন
@@ -348,7 +405,7 @@ const AdminPage: React.FC = () => {
         {/* --- TAB: DATABASE VIEWER --- */}
         {activeTab === 'DATABASE' && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in">
-                {/* Filters */}
+                {/* Filters - STATIC SYLLABUS ONLY */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex flex-col md:flex-row gap-4 items-center justify-between">
                     <div className="flex gap-2 w-full md:w-auto">
                         <select 
@@ -357,7 +414,7 @@ const AdminPage: React.FC = () => {
                             className="p-2 rounded-lg border text-sm bg-white dark:bg-gray-800 dark:border-gray-600"
                         >
                             <option value="">সকল বিষয়</option>
-                            {Object.keys(SYLLABUS_DB).map(s => <option key={s} value={s}>{s.split('(')[0]}</option>)}
+                            {Object.keys(SYLLABUS_DB).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                         <select 
                             value={qChapter} 
@@ -439,6 +496,88 @@ const AdminPage: React.FC = () => {
                     >
                         <ChevronRight size={16} />
                     </button>
+                </div>
+            </div>
+        )}
+
+        {/* --- TAB: MAINTENANCE (FIX MISMATCHES) --- */}
+        {activeTab === 'MAINTENANCE' && (
+            <div className="space-y-6 animate-in fade-in">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="mb-6">
+                        <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                            <Wrench size={24} className="text-orange-500"/> Database Maintenance
+                        </h2>
+                        <p className="text-gray-500 text-sm mt-1">
+                            Fix mismatched subject names or delete obsolete data. Use this tool if questions are not showing up on the main site due to name changes (e.g. "Physics" vs "Physics 1st Paper").
+                        </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-8">
+                        {/* Rename Section */}
+                        <div className="p-5 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800">
+                            <h3 className="font-bold text-blue-700 dark:text-blue-300 mb-4">Rename Subject</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Current Name (In DB)</label>
+                                    <select 
+                                        value={renameTarget} 
+                                        onChange={e => setRenameTarget(e.target.value)}
+                                        className="w-full p-2 rounded border bg-white dark:bg-gray-800 dark:text-white"
+                                    >
+                                        <option value="">Select Subject</option>
+                                        {dbSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">New Name (To Match Syllabus)</label>
+                                    <select 
+                                        value={newName}
+                                        onChange={e => setNewName(e.target.value)}
+                                        className="w-full p-2 rounded border bg-white dark:bg-gray-800 dark:text-white"
+                                    >
+                                        <option value="">Select Target Name</option>
+                                        {Object.keys(SYLLABUS_DB).map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <button 
+                                    onClick={handleRenameSubject}
+                                    disabled={maintenanceLoading || !renameTarget || !newName}
+                                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold transition-colors disabled:opacity-50"
+                                >
+                                    {maintenanceLoading ? 'Processing...' : 'Rename All Questions'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Delete Section */}
+                        <div className="p-5 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-800">
+                            <h3 className="font-bold text-red-700 dark:text-red-300 mb-4">Delete Subject Data</h3>
+                            <div className="space-y-4">
+                                <p className="text-xs text-red-600/70">Warning: This will permanently delete all questions associated with the selected subject.</p>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Subject to Delete</label>
+                                    <select 
+                                        id="deleteTarget"
+                                        className="w-full p-2 rounded border bg-white dark:bg-gray-800 dark:text-white"
+                                    >
+                                        <option value="">Select Subject</option>
+                                        {dbSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        const el = document.getElementById('deleteTarget') as HTMLSelectElement;
+                                        if (el.value) handleDeleteSubject(el.value);
+                                    }}
+                                    disabled={maintenanceLoading}
+                                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded font-bold transition-colors disabled:opacity-50"
+                                >
+                                    {maintenanceLoading ? 'Deleting...' : 'Delete All Questions'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         )}
