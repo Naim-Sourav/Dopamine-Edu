@@ -10,7 +10,8 @@ export enum AppView {
   EXAM_PACK = 'EXAM_PACK',
   PROFILE = 'PROFILE',
   ADMIN = 'ADMIN',
-  LEADERBOARD = 'LEADERBOARD'
+  LEADERBOARD = 'LEADERBOARD',
+  QUESTION_BANK = 'QUESTION_BANK'
 }
 
 export interface ChatMessage {
@@ -71,6 +72,7 @@ export enum Subject {
   BIOLOGY = 'Biology (জীববিজ্ঞান)',
   ICT = 'ICT (তথ্য ও যোগাযোগ প্রযুক্তি)',
   ENGLISH = 'English',
+  BANGLA = 'Bangla (বাংলা)',
   GK = 'General Knowledge (সাধারণ জ্ঞান)'
 }
 

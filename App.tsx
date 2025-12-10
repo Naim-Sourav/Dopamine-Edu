@@ -9,6 +9,7 @@ import SynapseBot from './components/SynapseBot';
 import QuizBattlePrototype from './components/QuizBattlePrototype';
 import CourseSection from './components/CourseSection';
 import ExamPackSection from './components/ExamPackSection';
+import QuestionBank from './components/QuestionBank';
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
 import ProfilePage from './components/ProfilePage';
@@ -27,27 +28,47 @@ const App: React.FC = () => {
   
   const { currentUser, loading } = useAuth();
   
-  // Theme State
-  const [isDarkMode, setIsDarkMode] = useState(() => {
+  // Theme State: 'light' | 'dark' | 'system'
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme');
-      return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const saved = localStorage.getItem('themeMode');
+      return (saved as 'light' | 'dark' | 'system') || 'system';
     }
-    return false;
+    return 'system';
   });
 
   // Apply Theme Effect
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkMode]);
+    const applyTheme = () => {
+      const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const shouldBeDark = themeMode === 'dark' || (themeMode === 'system' && isSystemDark);
 
-  const toggleTheme = () => setIsDarkMode(!isDarkMode);
+      if (shouldBeDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    applyTheme();
+    localStorage.setItem('themeMode', themeMode);
+
+    // Listener for system changes if mode is 'system'
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      if (themeMode === 'system') applyTheme();
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [themeMode]);
+
+  const toggleTheme = () => {
+    setThemeMode(prev => {
+      if (prev === 'light') return 'dark';
+      if (prev === 'dark') return 'system';
+      return 'light';
+    });
+  };
 
   const openSynapse = () => setIsSynapseOpen(true);
   const closeSynapse = () => setIsSynapseOpen(false);
@@ -62,6 +83,7 @@ const App: React.FC = () => {
       case AppView.TRACKER: return 'স্টাডি ট্র্যাকার';
       case AppView.COURSE: return 'কোর্সসমূহ';
       case AppView.EXAM_PACK: return 'মডেল টেস্ট';
+      case AppView.QUESTION_BANK: return 'প্রশ্ন ব্যাংক';
       case AppView.PROFILE: return 'প্রোফাইল';
       case AppView.ADMIN: return 'অ্যাডমিন প্যানেল';
       case AppView.LEADERBOARD: return 'লিডারবোর্ড';
@@ -103,6 +125,8 @@ const App: React.FC = () => {
         return <CourseSection />;
       case AppView.EXAM_PACK:
         return <ExamPackSection />;
+      case AppView.QUESTION_BANK:
+        return <QuestionBank onNavigate={setCurrentView} />;
       case AppView.PROFILE:
         return <ProfilePage onNavigate={setCurrentView} />;
       case AppView.ADMIN:
@@ -124,7 +148,8 @@ const App: React.FC = () => {
           onNavigate={setCurrentView} 
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
-          isDarkMode={isDarkMode}
+          isDarkMode={themeMode === 'dark'} // Only for basic prop logic if needed, but passing themeMode is better
+          themeMode={themeMode}
           toggleTheme={toggleTheme}
           openAuthModal={() => {}} 
         />

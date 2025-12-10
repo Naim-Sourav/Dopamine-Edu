@@ -6,7 +6,7 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1dfeI0GrNxywN-QAw8Nqq0KbWWi8WMUWW
+View your app in AI Studio: https://ai.studio/apps/drive/1uMLy9UpR5MJ8QEs4Cun1sbL1YTz750YR
 
 ## Run Locally
 
@@ -18,4 +18,3 @@ View your app in AI Studio: https://ai.studio/apps/drive/1dfeI0GrNxywN-QAw8Nqq0K
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
-Url: https://naim-sourav.github.io/Dopamine-Edu/
