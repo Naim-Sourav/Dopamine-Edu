@@ -1,29 +1,37 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { QuizQuestion, Subject, AdmissionResult, SearchSource, ExamStandard, QuizConfig, DifficultyLevel } from "../types";
 
-// Safely retrieve API key in Vite Environment
-const getApiKey = () => {
-  // Fix for TS error: Property 'env' does not exist on type 'ImportMeta'
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
-    return (import.meta as any).env.VITE_API_KEY;
-  }
-  return '';
-};
-
-const apiKey = getApiKey();
+// API Key Rotation Pool
+const API_KEYS = [
+  // @ts-ignore: process.env is replaced by bundler
+  process.env.API_KEY,
+  "AIzaSyBNJxFT8X1ldhADeCUNXpRp-b2k2uM2RIw",
+  "AIzaSyA3Z-b1YZfuHc-e2leBTOiKkGWLawLsRvw",
+  "AIzaSyBgVW3lgdx67iuDAdzT1AXFXx5RNmeJXt0"
+].filter((key) => key && key.startsWith('AIzaSy'));
 
 const getClient = () => {
+  const apiKey = API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
   if (!apiKey) {
     console.warn("API Key is missing. AI features will not work.");
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey: apiKey || '' });
 };
 
 const cleanJsonString = (str: string) => {
   return str.replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
-// --- SYNAPSE BOT LOGIC ---
+// --- MODELS CONFIG ---
+// Models to rotate through for robustness against Rate Limits (429 Errors)
+const GENERATIVE_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-preview-09-2025",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite"
+];
 
 const SYNAPSE_MODELS = [
   "gemini-2.5-flash-preview-09-2025", 
@@ -152,14 +160,14 @@ export const generateQuiz = async (
     const distribution = configs.map(cfg => {
       if (cfg.questionCount) {
         isPresetMode = true;
-        return `${cfg.subject}: ${cfg.questionCount} questions`;
+        return `- Subject: ${cfg.subject}, Count: ${cfg.questionCount} questions.`;
       }
-      return `${cfg.subject} (${cfg.chapter}: ${cfg.topics.join(', ')})`;
+      return `- Subject: ${cfg.subject}, Chapter: ${cfg.chapter}, Topics: [${cfg.topics.join(', ')}]`;
     }).join('\n');
 
     contextStr = distribution;
 
-    let prompt = `Generate exactly ${count} MCQ questions based on the following configuration:\n\n${contextStr}\n\nExam Standard: ${standard}\n`;
+    let prompt = `Generate exactly ${count} MCQ questions based on the following specific configuration:\n\n${contextStr}\n\nExam Standard: ${standard}\n`;
     
     if (focusInstruction) {
         prompt += `\n*** STRICT FOCUS INSTRUCTION FOR THIS BATCH ***\n${focusInstruction}\n`;
@@ -175,12 +183,15 @@ export const generateQuiz = async (
     }
 
     prompt += `Instructions:
-    1. ${isPresetMode ? 'Strictly follow the question distribution per subject provided above.' : 'Distribute questions fairly.'}
-    2. ${isPresetMode ? 'Since this is an Admission Preset, select the most high-yield and important topics for admission tests from the entire syllabus of the subjects.' : 'Questions MUST be derived strictly from the provided Topics.'}
+    1. ${isPresetMode ? 'Strictly follow the question distribution per subject provided above.' : 'Distribute questions fairly among the topics.'}
+    2. Questions MUST be derived strictly from the provided Chapter and Topics.
     3. Language: Bengali (Standard NCTB terminology).
     4. Output strictly in JSON format array.
-    5. Add a 'subject' field to each question to indicate which subject it belongs to.
-    6. IMPORTANT: Return EXACTLY ${count} questions. Do not generate more or less.`;
+    5. **CRITICAL**: You MUST populate the 'subject', 'chapter', and 'topic' fields for every single question.
+       - 'subject': Must match the subject name provided in configuration (e.g. Physics 2nd Paper).
+       - 'chapter': Must be the EXACT BENGALI NAME of the chapter provided in the configuration (e.g. তাপগতিবিদ্যা). Do NOT leave this empty.
+       - 'topic': Must be the specific topic name in Bengali (e.g. কার্নো ইঞ্জিন).
+    6. Return EXACTLY ${count} questions.`;
 
     let temp = 0.4;
     if (customTemperature !== undefined) {
@@ -202,28 +213,55 @@ export const generateQuiz = async (
           },
           correctAnswerIndex: { type: Type.INTEGER, description: "Index of the correct option (0-3)" },
           explanation: { type: Type.STRING, description: "Detailed explanation" },
-          subject: { type: Type.STRING, description: "The subject this question belongs to (e.g., Physics, Biology)" }
+          subject: { type: Type.STRING, description: "The subject this question belongs to" },
+          chapter: { type: Type.STRING, description: "The specific chapter name in BENGALI (e.g. ভেক্টর). Must not be empty." },
+          topic: { type: Type.STRING, description: "The specific topic name in BENGALI (e.g. লব্ধি). Must not be empty." }
         },
-        required: ["question", "options", "correctAnswerIndex", "explanation"]
+        required: ["question", "options", "correctAnswerIndex", "explanation", "subject", "chapter", "topic"]
       }
     };
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: responseSchema,
-        temperature: temp
-      }
-    });
+    // Retry Loop with Model Rotation
+    let lastError: any = null;
+    for (const model of GENERATIVE_MODELS) {
+      try {
+        console.log(`Generating quiz with model: ${model}`);
+        const response = await ai.models.generateContent({
+          model: model,
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: responseSchema,
+            temperature: temp
+          }
+        });
 
-    if (response.text) {
-      const data = JSON.parse(cleanJsonString(response.text));
-      const finalQuestions = (data as QuizQuestion[]);
-      return finalQuestions.slice(0, count);
+        if (response.text) {
+          const data = JSON.parse(cleanJsonString(response.text));
+          const finalQuestions = (data as QuizQuestion[]);
+          
+          // Post-processing to ensure fields are filled if AI missed them
+          // (Fallback logic: if chapter is missing, try to fill from config if only 1 config exists)
+          if (configs.length === 1 && !isPresetMode) {
+             finalQuestions.forEach(q => {
+                 if (!q.chapter) q.chapter = configs[0].chapter;
+                 if (!q.subject) q.subject = configs[0].subject;
+             });
+          }
+
+          return finalQuestions.slice(0, count);
+        }
+      } catch (error: any) {
+        console.warn(`Model ${model} failed:`, error.message);
+        lastError = error;
+        // Continue to next model if this one fails
+      }
     }
-    return [];
+
+    // If all models fail
+    console.error("All models failed to generate quiz.");
+    throw lastError || new Error("Failed to generate quiz.");
+
   } catch (error) {
     console.error("Error generating quiz:", error);
     throw error;
@@ -237,6 +275,7 @@ export const searchAdmissionInfo = async (query: string): Promise<AdmissionResul
     Target context: University Admissions in Bangladesh (BUET, Dhaka University, Medical, Engineering, GST, etc.).
     Summarize the key dates, requirements, or information clearly in Bengali.`;
 
+    // Attempt search with rotation if needed, but keeping simple for now
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,

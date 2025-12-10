@@ -81,12 +81,33 @@ export const fetchLeaderboardAPI = async (): Promise<LeaderboardUser[]> => {
 };
 
 export const toggleSaveQuestionAPI = async (userId: string, questionId: string) => {
+  // Deprecated usage, redirects to save for backward compatibility
+  return saveQuestionAPI(userId, questionId);
+};
+
+export const saveQuestionAPI = async (userId: string, questionId: string, folder?: string) => {
   const response = await fetch(`${API_BASE}/users/${userId}/saved-questions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questionId })
+    body: JSON.stringify({ questionId, folder })
   });
-  return handleResponse(response, 'Failed to toggle save');
+  return handleResponse(response, 'Failed to save question');
+};
+
+export const updateSavedQuestionFolderAPI = async (userId: string, savedId: string, folder: string) => {
+  const response = await fetch(`${API_BASE}/users/${userId}/saved-questions/${savedId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folder })
+  });
+  return handleResponse(response, 'Failed to update folder');
+};
+
+export const unsaveQuestionAPI = async (userId: string, questionId: string) => {
+  const response = await fetch(`${API_BASE}/users/${userId}/saved-questions/by-q/${questionId}`, {
+    method: 'DELETE'
+  });
+  return handleResponse(response, 'Failed to unsave question');
 };
 
 export const fetchSavedQuestionsAPI = async (userId: string) => {
