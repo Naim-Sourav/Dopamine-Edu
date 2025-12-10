@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Brain, PieChart, Sparkles, GraduationCap, ArrowRight, CheckCircle2, Trophy, Swords, Zap, Users, Crown, Rocket, Star, ShieldCheck, Play, Activity, BookOpen } from 'lucide-react';
+import { Bot, Brain, PieChart, Sparkles, GraduationCap, ArrowRight, CheckCircle2, Trophy, Swords, Zap, Users, Crown, Rocket, Star, ShieldCheck, Play, Activity, BookOpen, FileCheck, Clock } from 'lucide-react';
 
 interface LandingPageProps {
   onLoginClick: () => void;
@@ -206,38 +206,71 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
 
             <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-6 gap-4 md:gap-6 md:grid-rows-2 h-auto md:h-[600px]">
                 
-                {/* Feature 1: Ostad AI (Large) */}
-                <div className="md:col-span-4 row-span-2 bg-gradient-to-br from-emerald-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group min-h-[400px]">
-                    <div className="absolute top-0 right-0 w-64 h-64 md:w-96 md:h-96 bg-emerald-500/10 rounded-full blur-3xl -mr-20 -mt-20 group-hover:bg-emerald-500/20 transition-all duration-500"></div>
-                    <div className="relative z-10 h-full flex flex-col justify-between">
-                        <div>
-                            <div className="w-12 h-12 md:w-16 md:h-16 bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 rounded-2xl md:rounded-3xl flex items-center justify-center mb-6 md:mb-8 shadow-md group-hover:scale-110 transition-transform duration-300">
-                                <Bot size={28} className="md:w-9 md:h-9" />
+                {/* Feature 1: Live Exam (Big Card - Focus) - UPDATED TO MATCH HOME PAGE */}
+                <div className="md:col-span-4 row-span-2 bg-gradient-to-r from-gray-900 to-gray-800 dark:from-black dark:to-gray-900 text-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 shadow-xl hover:shadow-2xl transition-all duration-300 relative overflow-hidden group min-h-[400px] cursor-pointer" onClick={onLoginClick}>
+                    {/* Abstract Background Elements from HomeDashboard */}
+                    <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-primary/20 rounded-full blur-[100px] -mr-20 -mt-20 group-hover:bg-primary/30 transition-all duration-700"></div>
+                    <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-blue-500/10 rounded-full blur-[80px] -ml-10 -mb-10"></div>
+
+                    <div className="relative z-10 h-full flex flex-col md:flex-row items-center justify-between gap-8">
+                        <div className="space-y-4 max-w-lg flex-1">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-xs font-bold text-green-300 backdrop-blur-md">
+                                <Sparkles size={12} /> ডেইলি চ্যালেঞ্জ
                             </div>
-                            <h3 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-gray-900 dark:text-white">Ostad AI (AI Tutor)</h3>
-                            <p className="text-gray-600 dark:text-gray-300 text-base md:text-lg leading-relaxed max-w-md">
-                                প্রাইভেট টিউটরের জন্য আর অপেক্ষা নয়। ২৪/৭ যেকোনো কঠিন টপিক বুঝে নাও আমাদের Ostad AI এর কাছে। ছবি তুলে পাঠাও বা চ্যাট করো। এটি তোমাকে স্টেপ-বাই-স্টেপ সমাধান দিবে।
+                            <h3 className="text-3xl md:text-5xl font-bold leading-tight">
+                                নিজেকে যাচাই করো <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">লাইভ কুইজ</span> দিয়ে
+                            </h3>
+                            <p className="text-gray-400 text-sm md:text-base leading-relaxed">
+                                প্রতিদিন নতুন নতুন টপিকের উপর মডেল টেস্ট দাও এবং তোমার অবস্থান যাচাই করো। ভুলগুলো থেকে শেখো।
                             </p>
+                            <button className="mt-4 bg-primary hover:bg-green-600 text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 group-hover:scale-105 active:scale-95 w-fit">
+                                পরীক্ষা শুরু করুন <ArrowRight size={18} />
+                            </button>
                         </div>
-                        <button onClick={onLoginClick} className="mt-6 md:mt-8 w-fit bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 md:px-6 md:py-3 rounded-xl font-bold flex items-center gap-2 group-hover:gap-4 transition-all text-sm md:text-base">
-                            চ্যাট শুরু করুন <ArrowRight size={18} className="md:w-5 md:h-5" />
-                        </button>
-                    </div>
-                    {/* Abstract UI Mockup */}
-                    <div className="absolute -bottom-10 -right-10 md:w-80 md:h-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-2xl p-4 rotate-6 group-hover:rotate-3 transition-transform duration-500 hidden md:block">
-                        <div className="flex gap-2 mb-4">
-                            <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                            <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                            <div className="w-3 h-3 rounded-full bg-green-400"></div>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg rounded-tl-none text-xs w-3/4">ভেক্টর চ্যাপ্টারের নৌকা-নদীর ম্যাথটা বুঝিয়ে দাও...</div>
-                            <div className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 p-3 rounded-lg rounded-tr-none text-xs self-end ml-auto w-5/6">অবশ্যই! মনে করো স্রোতের বেগ u এবং নৌকার বেগ v...</div>
+
+                        {/* Visual Element from HomeDashboard */}
+                        <div className="relative w-full md:w-auto flex justify-center mt-8 md:mt-0">
+                            <div className="relative w-64 h-48 bg-gray-800/50 backdrop-blur-md border border-white/10 rounded-2xl p-4 transform rotate-3 group-hover:rotate-6 transition-transform duration-500 shadow-2xl">
+                                <div className="absolute -top-3 -right-3 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg animate-bounce">Live</div>
+                                <div className="h-full flex flex-col justify-between">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary"><Clock size={20}/></div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white">Physics Quiz</p>
+                                            <p className="text-[10px] text-gray-400">Time: 20 Mins</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                                            <div className="h-full bg-primary w-[70%]"></div>
+                                        </div>
+                                        <div className="flex justify-between text-[10px] text-gray-400">
+                                            <span>Progress</span>
+                                            <span>1500+ Participants</span>
+                                        </div>
+                                    </div>
+                                    <button className="w-full py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold transition-colors text-white">
+                                        Join Now
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Feature 2: Battle (Medium) */}
+                {/* Feature 2: Ostad AI (Medium) */}
+                <div className="md:col-span-2 bg-white dark:bg-gray-800 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all group cursor-pointer relative overflow-hidden min-h-[200px]" onClick={onLoginClick}>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-emerald-500/20 transition-all"></div>
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center mb-4">
+                        <Bot size={24} />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Ostad AI টিউটর</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">
+                        ২৪/৭ পার্সোনাল টিউটর। যেকোনো কঠিন টপিক বা ম্যাথ ছবি তুলে পাঠাও, মুহূর্তেই সমাধান বুঝে নাও।
+                    </p>
+                </div>
+
+                {/* Feature 3: Quiz Battle (Medium) */}
                 <div className="md:col-span-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 text-white shadow-lg hover:shadow-orange-500/30 hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden group min-h-[200px]" onClick={onLoginClick}>
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
                     <div className="relative z-10">
@@ -245,26 +278,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
                             <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-md rounded-xl md:rounded-2xl flex items-center justify-center">
                                 <Swords size={20} className="md:w-7 md:h-7 text-white" />
                             </div>
-                            <span className="bg-white/20 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold backdrop-blur-sm animate-pulse">LIVE</span>
+                            <span className="bg-white/20 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold backdrop-blur-sm animate-pulse">MULTIPLAYER</span>
                         </div>
                         <h3 className="text-xl md:text-2xl font-bold mb-1 md:mb-2">কুইজ ব্যাটল</h3>
                         <p className="text-orange-100 text-xs md:text-sm mb-2 md:mb-4">বন্ধুদের চ্যালেঞ্জ করো এবং লাইভ ১ বনাম ১ কুইজ খেলে পয়েন্ট জিতো।</p>
                     </div>
                     <div className="absolute -bottom-6 -right-6 text-white/10 transform rotate-12 group-hover:rotate-0 transition-transform duration-500">
                         <Swords size={80} className="md:w-[120px] md:h-[120px]" />
-                    </div>
-                </div>
-
-                {/* Feature 3: Tracker (Medium) */}
-                <div className="md:col-span-2 bg-white dark:bg-gray-800 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all group overflow-hidden relative min-h-[200px]">
-                    <div className="absolute top-0 right-0 w-24 h-24 md:w-32 md:h-32 bg-blue-500/10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-blue-500/20 transition-all"></div>
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl md:rounded-2xl flex items-center justify-center mb-4 md:mb-6">
-                        <PieChart size={20} className="md:w-7 md:h-7" />
-                    </div>
-                    <h3 className="text-xl md:text-2xl font-bold mb-1 md:mb-2 text-gray-900 dark:text-white">স্টাডি ট্র্যাকার</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">প্রতিদিনের পড়ার রুটিন এবং প্রোগ্রেস ট্র্যাক করো। ফোকাস মোড ব্যবহার করে পড়াশুনার গতি বাড়াও।</p>
-                    <div className="mt-4 h-1.5 md:h-2 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 w-2/3 rounded-full animate-[shimmer_2s_infinite] bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)]"></div>
                     </div>
                 </div>
 

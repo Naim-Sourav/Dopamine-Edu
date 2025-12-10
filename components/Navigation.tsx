@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppView, Notification } from '../types';
-import { GraduationCap, ClipboardList, Home, PieChart, Moon, Sun, Swords, Library, LogOut, User, ShieldCheck, Bell, Trophy, FileCheck } from 'lucide-react';
+import { GraduationCap, ClipboardList, Home, PieChart, Moon, Sun, Swords, Library, LogOut, User, ShieldCheck, Bell, Trophy, FileCheck, Archive, Monitor } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchNotificationsAPI } from '../services/api';
 
@@ -11,6 +11,7 @@ interface NavigationProps {
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (open: boolean) => void;
   isDarkMode: boolean;
+  themeMode?: 'light' | 'dark' | 'system';
   toggleTheme: () => void;
   openAuthModal: () => void;
 }
@@ -21,6 +22,7 @@ const Navigation: React.FC<NavigationProps> = ({
   isMobileMenuOpen, 
   setIsMobileMenuOpen,
   isDarkMode,
+  themeMode,
   toggleTheme
 }) => {
   const { currentUser, logout, userAvatar } = useAuth();
@@ -61,6 +63,7 @@ const Navigation: React.FC<NavigationProps> = ({
   const navItems = [
     { view: AppView.HOME, label: 'হোম (Home)', icon: <Home size={20} /> },
     { view: AppView.COURSE, label: 'কোর্সসমূহ (Courses)', icon: <Library size={20} /> },
+    { view: AppView.QUESTION_BANK, label: 'প্রশ্ন ব্যাংক (Q-Bank)', icon: <Archive size={20} /> },
     { view: AppView.EXAM_PACK, label: 'মডেল টেস্ট (Exams)', icon: <FileCheck size={20} /> },
     { view: AppView.QUIZ, label: 'কুইজ চ্যালেঞ্জ (Quiz)', icon: <ClipboardList size={20} /> },
     { view: AppView.BATTLE, label: 'কুইজ ব্যাটল (Battle)', icon: <Swords size={20} /> },
@@ -81,6 +84,18 @@ const Navigation: React.FC<NavigationProps> = ({
     } catch (error) {
       console.error("Failed to log out", error);
     }
+  };
+
+  const getThemeIcon = () => {
+    if (themeMode === 'dark') return <Moon size={18} />;
+    if (themeMode === 'system') return <Monitor size={18} />;
+    return <Sun size={18} />;
+  };
+
+  const getThemeLabel = () => {
+    if (themeMode === 'dark') return 'ডার্ক মোড';
+    if (themeMode === 'system') return 'অটো (সিস্টেম)';
+    return 'লাইট মোড';
   };
 
   if (!currentUser) return null;
@@ -203,10 +218,10 @@ const Navigation: React.FC<NavigationProps> = ({
         <div className="p-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
           <button
             onClick={toggleTheme}
-            className="w-full flex items-center justify-center space-x-2 p-3 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+            className="w-full flex items-center justify-center space-x-2 p-3 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors active:scale-95"
           >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-            <span className="text-sm font-medium">{isDarkMode ? 'লাইট মোড' : 'ডার্ক মোড'}</span>
+            {getThemeIcon()}
+            <span className="text-sm font-medium">{getThemeLabel()}</span>
           </button>
           
           <button

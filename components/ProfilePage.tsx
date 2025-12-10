@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, EnrolledCourse } from '../contexts/AuthContext';
-import { fetchSavedQuestionsAPI, deleteSavedQuestionAPI, fetchUserStatsAPI, fetchUserMistakesAPI, deleteUserMistakeAPI } from '../services/api';
-import { User, Mail, BookOpen, Edit2, Check, X, Camera, Award, Calendar, Bookmark, Trash2, ChevronRight, LayoutGrid, List, TrendingUp, BarChart2, AlertCircle, Zap, Filter, GraduationCap, Briefcase, Target, PieChart, Layers, RefreshCw, AlertTriangle, Clock, Play, AlignJustify, LayoutList } from 'lucide-react';
+import { fetchSavedQuestionsAPI, deleteSavedQuestionAPI, fetchUserStatsAPI, fetchUserMistakesAPI, deleteUserMistakeAPI, updateSavedQuestionFolderAPI } from '../services/api';
+import { User, Mail, BookOpen, Edit2, Check, X, Camera, Award, Calendar, Bookmark, Trash2, ChevronRight, LayoutGrid, List, TrendingUp, BarChart2, AlertCircle, Zap, Filter, GraduationCap, Briefcase, Target, PieChart, Layers, RefreshCw, AlertTriangle, Clock, Play, AlignJustify, LayoutList, FolderPlus, Folder, MoveRight } from 'lucide-react';
 import { AppView } from '../types';
+import { useToast } from './Toast';
 
 const AVATARS = [
   'https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=b6e3f4',
@@ -24,6 +25,7 @@ interface ProfilePageProps {
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const { currentUser, userAvatar, enrolledCourses, extendedProfile, updateUserProfile } = useAuth();
+  const { showToast } = useToast();
   
   const [activeTab, setActiveTab] = useState<'INFO' | 'COURSES' | 'SAVED' | 'MISTAKES'>('INFO');
   
@@ -47,6 +49,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   // Saved Questions State
   const [savedQuestions, setSavedQuestions] = useState<any[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [activeFolder, setActiveFolder] = useState<string>('All');
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  // Derived folder list (including default 'General' and user-created if we were persisting folder list separately, here just derived)
+  // For move dropdown
+  const [movingQuestionId, setMovingQuestionId] = useState<string | null>(null);
 
   // Mistakes State
   const [mistakes, setMistakes] = useState<any[]>([]);
@@ -133,9 +141,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       });
       setIsEditing(false);
       setShowAvatarSelector(false);
+      showToast("প্রোফাইল সফলভাবে আপডেট হয়েছে", "success");
     } catch (error) {
       console.error("Failed to update profile", error);
-      alert("প্রোফাইল আপডেট করতে সমস্যা হয়েছে।");
+      showToast("প্রোফাইল আপডেট করতে সমস্যা হয়েছে।", "error");
     } finally {
       setLoading(false);
     }
@@ -148,9 +157,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     try {
       await deleteSavedQuestionAPI(currentUser.uid, id);
       setSavedQuestions(prev => prev.filter(sq => sq._id !== id));
+      showToast("প্রশ্নটি ডিলিট করা হয়েছে", "info");
     } catch (e) {
-      alert("ডিলিট করতে সমস্যা হয়েছে।");
+      showToast("ডিলিট করতে সমস্যা হয়েছে।", "error");
     }
+  };
+
+  const handleMoveToFolder = async (savedId: string, folder: string) => {
+      if (!currentUser) return;
+      try {
+          await updateSavedQuestionFolderAPI(currentUser.uid, savedId, folder);
+          setSavedQuestions(prev => prev.map(sq => sq._id === savedId ? { ...sq, folder } : sq));
+          setMovingQuestionId(null);
+          showToast(`Moved to ${folder}`, "success");
+      } catch (e) {
+          showToast("Failed to move", "error");
+      }
   };
 
   const handleDeleteMistake = async (id: string) => {
@@ -160,20 +182,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     try {
         await deleteUserMistakeAPI(currentUser.uid, id);
         setMistakes(prev => prev.filter(m => m._id !== id));
+        showToast("তালিকা থেকে মুছে ফেলা হয়েছে", "info");
     } catch (e) {
-        alert("ডিলিট করতে সমস্যা হয়েছে।");
+        showToast("ডিলিট করতে সমস্যা হয়েছে।", "error");
     }
   };
 
   // --- Filtering Logic ---
-  // Memoized lists of unique subjects and chapters based on the ACTIVE tab data
-  const { uniqueSubjects, uniqueChapters } = useMemo(() => {
+  const { uniqueSubjects, uniqueChapters, availableFolders } = useMemo(() => {
     const subjects = new Set<string>();
     const chapters = new Set<string>();
+    const folders = new Set<string>(['All', 'General']);
     
-    const sourceData = activeTab === 'SAVED' ? savedQuestions.map(sq => sq.questionId) : mistakes;
+    const sourceData = activeTab === 'SAVED' ? savedQuestions : mistakes;
 
-    sourceData.forEach(q => {
+    sourceData.forEach(item => {
+        const q = activeTab === 'SAVED' ? item.questionId : item;
         if (!q) return;
         if (q.subject) subjects.add(q.subject);
         if (q.chapter) {
@@ -181,17 +205,26 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 chapters.add(q.chapter);
             }
         }
+        if (activeTab === 'SAVED' && item.folder) {
+            folders.add(item.folder);
+        }
     });
 
     return {
         uniqueSubjects: Array.from(subjects),
-        uniqueChapters: Array.from(chapters)
+        uniqueChapters: Array.from(chapters),
+        availableFolders: Array.from(folders)
     };
   }, [activeTab, savedQuestions, mistakes, filterSubject]);
 
   const filteredItems = useMemo(() => {
-      const sourceData = activeTab === 'SAVED' ? savedQuestions : mistakes;
+      let sourceData = activeTab === 'SAVED' ? savedQuestions : mistakes;
       
+      // Filter by folder first for saved
+      if (activeTab === 'SAVED' && activeFolder !== 'All') {
+          sourceData = sourceData.filter(item => (item.folder || 'General') === activeFolder);
+      }
+
       return sourceData.filter(item => {
           const q = activeTab === 'SAVED' ? item.questionId : item;
           if (!q) return false;
@@ -200,7 +233,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           const matchChapter = filterChapter === 'ALL' || q.chapter === filterChapter;
           return matchSubject && matchChapter;
       });
-  }, [activeTab, savedQuestions, mistakes, filterSubject, filterChapter]);
+  }, [activeTab, savedQuestions, mistakes, filterSubject, filterChapter, activeFolder]);
 
 
   // --- Exam Logic ---
@@ -466,7 +499,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                                    {stats.strongestTopics && stats.strongestTopics.length > 0 ? (
                                        stats.strongestTopics.map((t: any) => (
                                            <div key={t.topic} className="flex justify-between items-center bg-green-50 dark:bg-green-900/10 px-3 py-2 rounded-lg">
-                                               <span className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 truncate mr-2">{t.topic}</span>
+                                               <span className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 truncate mr-2">{t.topic || 'Unknown'}</span>
                                                <span className="text-xs font-bold text-green-600 shrink-0">{t.accuracy.toFixed(0)}%</span>
                                            </div>
                                        ))
@@ -481,7 +514,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                                    {stats.weakestTopics && stats.weakestTopics.length > 0 ? (
                                        stats.weakestTopics.map((t: any) => (
                                            <div key={t.topic} className="flex justify-between items-center bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg">
-                                               <span className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 truncate mr-2">{t.topic}</span>
+                                               <span className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 truncate mr-2">{t.topic || 'Unknown'}</span>
                                                <span className="text-xs font-bold text-red-500 shrink-0">{t.accuracy.toFixed(0)}%</span>
                                            </div>
                                        ))
@@ -491,30 +524,52 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                        </div>
                    </div>
 
-                   {/* Subject Performance */}
-                   <div className="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                       <h3 className="font-bold text-gray-800 dark:text-white mb-4 md:mb-6 flex items-center gap-2 text-sm md:text-base">
+                   {/* Subject Performance - BAR CHART */}
+                   <div className="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
+                       <h3 className="font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2 text-sm md:text-base">
                            <BarChart2 size={18} className="text-blue-500"/> Subject Performance
                        </h3>
-                       <div className="space-y-4">
-                           {stats.subjectBreakdown && stats.subjectBreakdown.map((subj: any) => (
-                               <div key={subj.subject}>
-                                   <div className="flex justify-between text-xs md:text-sm mb-1.5">
-                                       <span className="font-bold text-gray-700 dark:text-gray-300 truncate mr-2">{subj.subject}</span>
-                                       <span className="font-mono font-bold text-gray-900 dark:text-white shrink-0">{subj.accuracy.toFixed(0)}%</span>
-                                   </div>
-                                   <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2.5 md:h-3 overflow-hidden">
-                                       <div 
-                                         className={`h-full rounded-full transition-all duration-1000 ${subj.accuracy < 40 ? 'bg-red-500' : subj.accuracy < 75 ? 'bg-yellow-500' : 'bg-green-500'}`} 
-                                         style={{ width: `${subj.accuracy}%` }}
-                                       ></div>
-                                   </div>
-                               </div>
-                           ))}
-                           {(!stats.subjectBreakdown || stats.subjectBreakdown.length === 0) && (
+                       
+                       <div className="flex-1 flex flex-col justify-end">
+                           {(!stats.subjectBreakdown || stats.subjectBreakdown.length === 0) ? (
                                <div className="text-center py-10 text-gray-400">
                                    <PieChart size={48} className="mx-auto mb-2 opacity-20" />
                                    <p>No data available yet</p>
+                               </div>
+                           ) : (
+                               <div className="w-full">
+                                   <div className="flex items-end gap-3 h-48 sm:h-56 pb-2 px-2">
+                                      {stats.subjectBreakdown.map((subj: any) => {
+                                          const height = Math.max(10, subj.accuracy); // Minimum height for visibility
+                                          const colorClass = subj.accuracy >= 75 ? 'bg-green-500' : subj.accuracy >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+                                          
+                                          return (
+                                              <div key={subj.subject} className="flex-1 flex flex-col items-center gap-2 group relative">
+                                                  {/* Tooltip */}
+                                                  <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-xs px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10">
+                                                      {subj.subject}: {subj.accuracy.toFixed(0)}%
+                                                  </div>
+                                                  
+                                                  <div className="w-full max-w-[40px] bg-gray-100 dark:bg-gray-700 rounded-t-lg relative flex flex-col justify-end overflow-hidden h-full">
+                                                      <div 
+                                                        className={`w-full transition-all duration-1000 ease-out ${colorClass} opacity-80 group-hover:opacity-100`} 
+                                                        style={{ height: `${height}%` }}
+                                                      ></div>
+                                                  </div>
+                                              </div>
+                                          )
+                                      })}
+                                   </div>
+                                   {/* X-Axis Labels */}
+                                   <div className="flex gap-3 px-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+                                      {stats.subjectBreakdown.map((subj: any) => (
+                                          <div key={subj.subject} className="flex-1 text-center">
+                                              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium truncate" title={subj.subject}>
+                                                  {subj.subject.split(' ')[0]}
+                                              </p>
+                                          </div>
+                                      ))}
+                                   </div>
                                </div>
                            )}
                        </div>
@@ -649,12 +704,61 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             </div>
         )}
 
-        {/* TAB CONTENT: SAVED QUESTIONS */}
+        {/* TAB CONTENT: SAVED QUESTIONS (UPDATED WITH FOLDERS) */}
         {activeTab === 'SAVED' && (
             <div className="space-y-6 animate-in fade-in">
-               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+               
+               {/* Folder Navigation */}
+               <div className="flex flex-col gap-4">
+                   <div className="flex flex-wrap gap-2 items-center">
+                       {availableFolders.map(folder => (
+                           <button
+                               key={folder}
+                               onClick={() => setActiveFolder(folder)}
+                               className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors border ${activeFolder === folder ? 'bg-purple-100 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-700 dark:text-purple-300' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                           >
+                               <Folder size={14} fill={activeFolder === folder ? "currentColor" : "none"}/>
+                               {folder}
+                           </button>
+                       ))}
+                       
+                       {/* Add Folder Logic would ideally persist, currently relying on assignment */}
+                       <div className="relative flex items-center">
+                           {isCreatingFolder ? (
+                               <div className="flex items-center gap-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-1">
+                                   <input 
+                                     autoFocus
+                                     className="w-24 text-xs p-1 outline-none bg-transparent"
+                                     placeholder="Name..."
+                                     value={newFolderName}
+                                     onChange={(e) => setNewFolderName(e.target.value)}
+                                     onKeyDown={(e) => {
+                                         if (e.key === 'Enter' && newFolderName.trim()) {
+                                             // Ideally call API to create empty folder, but for now we rely on moving items
+                                             // Just resetting for UI simulation
+                                             setIsCreatingFolder(false);
+                                             showToast("To create a folder, move a question to 'New Folder'!", "info");
+                                         }
+                                     }}
+                                   />
+                                   <button onClick={() => setIsCreatingFolder(false)}><X size={12}/></button>
+                               </div>
+                           ) : (
+                               <button 
+                                 onClick={() => setIsCreatingFolder(true)} 
+                                 className="px-2 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:text-gray-700 hover:border-gray-400 text-xs flex items-center gap-1"
+                               >
+                                   <FolderPlus size={14}/> Add
+                               </button>
+                           )}
+                       </div>
+                   </div>
+               </div>
+
+               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-t border-gray-100 dark:border-gray-700 pt-4">
                    <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      <Bookmark size={20} className="text-primary md:w-6 md:h-6" /> Saved Questions ({filteredItems.length})
+                      <Bookmark size={20} className="text-primary md:w-6 md:h-6" /> 
+                      {activeFolder === 'All' ? 'All Saved Questions' : activeFolder} ({filteredItems.length})
                    </h2>
                    
                    {/* Filters */}
@@ -691,7 +795,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                      <p>
                         {savedQuestions.length === 0 
                            ? "No saved questions yet. Bookmark tricky questions during quizzes!"
-                           : "No questions found with current filters."
+                           : "No questions found in this folder/filter."
                         }
                      </p>
                   </div>
@@ -703,18 +807,60 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                         
                         return (
                            <div key={sq._id} className="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm relative group">
-                              <button 
-                                 onClick={() => handleDeleteSaved(sq._id)}
-                                 className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                 title="Delete"
-                              >
-                                 <Trash2 size={18} />
-                              </button>
+                              <div className="absolute top-4 right-4 flex items-center gap-2">
+                                  {/* Move Folder Dropdown */}
+                                  <div className="relative">
+                                      <button 
+                                        onClick={() => setMovingQuestionId(movingQuestionId === sq._id ? null : sq._id)}
+                                        className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                        title="Move to Folder"
+                                      >
+                                          <MoveRight size={18} />
+                                      </button>
+                                      
+                                      {movingQuestionId === sq._id && (
+                                          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95">
+                                              <div className="p-2 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 text-xs font-bold text-gray-500 uppercase">Move to...</div>
+                                              <div className="max-h-48 overflow-y-auto">
+                                                  {availableFolders.filter(f => f !== 'All').map(folder => (
+                                                      <button
+                                                          key={folder}
+                                                          onClick={() => handleMoveToFolder(sq._id, folder)}
+                                                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                                                      >
+                                                          <Folder size={14}/> {folder}
+                                                      </button>
+                                                  ))}
+                                                  {/* Quick create option */}
+                                                  <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                                                      <input 
+                                                        placeholder="New Folder..."
+                                                        className="w-full text-sm border rounded px-2 py-1 dark:bg-gray-700 dark:border-gray-600"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                handleMoveToFolder(sq._id, (e.target as HTMLInputElement).value);
+                                                            }
+                                                        }}
+                                                      />
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      )}
+                                  </div>
+
+                                  <button 
+                                    onClick={() => handleDeleteSaved(sq._id)}
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                              </div>
                               
-                              <div className="flex flex-wrap gap-2 mb-3 pr-10">
+                              <div className="flex flex-wrap gap-2 mb-3 pr-20">
                                  {q.subject && <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-[10px] rounded font-bold text-gray-600 dark:text-gray-300">{q.subject}</span>}
                                  {q.chapter && <span className="px-2 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 text-[10px] rounded font-bold">{q.chapter}</span>}
-                                 {q.topic && <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] rounded font-bold">{q.topic}</span>}
+                                 {sq.folder && sq.folder !== 'General' && <span className="px-2 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-[10px] rounded font-bold flex items-center gap-1"><Folder size={10}/> {sq.folder}</span>}
                               </div>
 
                               <h3 className="font-bold text-gray-800 dark:text-white mb-4 pr-4 text-base md:text-lg">{q.question}</h3>

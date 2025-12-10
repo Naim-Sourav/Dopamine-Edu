@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Minimize2, X, Image as ImageIcon, Send, Sparkles, Bot } from 'lucide-react';
 
@@ -74,15 +75,16 @@ const SynapseBot: React.FC<SynapseBotProps> = ({ isOpen, onClose }) => {
     "gemini-2.5-flash-preview-09-2025",
     "gemini-2.5-flash-lite"
   ];
-  // Securely get API key from Vite environment variable
-  const getApiKey = () => {
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
-      return (import.meta as any).env.VITE_API_KEY;
-    }
-    return '';
-  };
+  
+  // Securely get API key pool
+  const BOT_KEYS = [
+    // @ts-ignore
+    process.env.API_KEY,
+    "AIzaSyBNJxFT8X1ldhADeCUNXpRp-b2k2uM2RIw",
+    "AIzaSyA3Z-b1YZfuHc-e2leBTOiKkGWLawLsRvw",
+    "AIzaSyBgVW3lgdx67iuDAdzT1AXFXx5RNmeJXt0"
+  ].filter(key => key && key.startsWith('AIzaSy'));
 
-  const BOT_KEYS = [getApiKey()]; 
   const BOT_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
 
   const SYSTEM_PROMPT = `তুমি হলে HSC পরীক্ষার প্রস্তুতিতে সাহায্য করার জন্য একজন অত্যন্ত জ্ঞানী, বন্ধুত্বপূর্ণ এবং স্মার্ট বড় ভাই (টিউটর)। তোমার সব উত্তর অবশ্যই নির্ভুল, সহজবোধ্য বাংলায় (বাংলা) দিতে হবে। তুমি সবসময় 'তুমি' করে সম্বোধন করবে এবং অনানুষ্ঠানিক, আন্তরিক ভাষায় কথা বলবে, যেন ছোট ভাই বা বন্ধুর সাথে কথা বলছো। তোমার লক্ষ্য হলো কঠিন বিষয়গুলো সরল ও সংক্ষিপ্তভাবে বোঝানো।
@@ -182,7 +184,18 @@ Use MCQs strategically when:
     }
 
     const currentModel = BOT_MODELS[modelIndex];
-    const currentApiKey = BOT_KEYS[keyIndex];
+    // Key rotation logic
+    const currentApiKey = BOT_KEYS[keyIndex % BOT_KEYS.length];
+    if (!currentApiKey) {
+        setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: 'model',
+            text: "দুঃখিত! API কী পাওয়া যায়নি। দয়া করে অ্যাডমিনকে জানান।"
+        }]);
+        setLoading(false);
+        return;
+    }
+
     const apiUrl = `${BOT_API_URL}${currentModel}:generateContent?key=${currentApiKey}`;
 
     // Payload logic

@@ -5,6 +5,7 @@ import { saveQuestionsToBankAPI } from '../services/api';
 import { ExamStandard, QuizQuestion } from '../types';
 import { SYLLABUS_DB } from '../services/syllabusData';
 import { Sparkles, Save, Trash2, Brain, CheckCircle, Loader2, RefreshCw, Layers, BookOpen, Hash, CheckSquare, Square, Upload, Download, XCircle, PieChart, Atom, Beaker, Calculator, Dna, Activity, Globe, ChevronDown, Book } from 'lucide-react';
+import { useToast } from './Toast';
 
 // --- BLOOM'S TAXONOMY & QUESTION STRATEGIES ---
 interface BatchStrategy {
@@ -60,6 +61,7 @@ const AdminQuestionGenerator: React.FC = () => {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [standard, setStandard] = useState<ExamStandard>(ExamStandard.HSC);
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
+  const { showToast } = useToast();
   
   // Custom Distribution State: Index of Strategy -> Count
   const [distribution, setDistribution] = useState<number[]>([5, 3, 2, 0, 0, 0]); 
@@ -69,7 +71,6 @@ const AdminQuestionGenerator: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [progress, setProgress] = useState('');
-  const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error', msg: string} | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -116,12 +117,11 @@ const AdminQuestionGenerator: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    if (!subject || !chapter) return alert("বিষয় এবং অধ্যায় নির্বাচন করুন।");
-    if (selectedTopics.length === 0) return alert("অন্তত একটি টপিক নির্বাচন করুন।");
-    if (totalQuestionsToGenerate === 0) return alert("অন্তত একটি প্রশ্নের সংখ্যা দিন।");
+    if (!subject || !chapter) return showToast("বিষয় এবং অধ্যায় নির্বাচন করুন।", "warning");
+    if (selectedTopics.length === 0) return showToast("অন্তত একটি টপিক নির্বাচন করুন।", "warning");
+    if (totalQuestionsToGenerate === 0) return showToast("অন্তত একটি প্রশ্নের সংখ্যা দিন।", "warning");
 
     setIsGenerating(true);
-    setSaveStatus(null);
     
     try {
       // Loop through selected topics
@@ -178,7 +178,7 @@ const AdminQuestionGenerator: React.FC = () => {
 
     } catch (error) {
       console.error(error);
-      alert("সমস্যা হয়েছে।");
+      showToast("সমস্যা হয়েছে।", "error");
     } finally {
       setIsGenerating(false);
     }
@@ -194,10 +194,10 @@ const AdminQuestionGenerator: React.FC = () => {
         options: q.options || []
       }));
       await saveQuestionsToBankAPI(sanitized);
-      setSaveStatus({ type: 'success', msg: `সফলভাবে ${generatedQuestions.length} টি প্রশ্ন সেভ হয়েছে!` });
-      setTimeout(() => { setGeneratedQuestions([]); setSaveStatus(null); }, 3000);
+      showToast(`সফলভাবে ${generatedQuestions.length} টি প্রশ্ন সেভ হয়েছে!`, "success");
+      setTimeout(() => { setGeneratedQuestions([]); }, 2000);
     } catch (error: any) {
-      setSaveStatus({ type: 'error', msg: error.message });
+      showToast(error.message, "error");
     } finally {
       setIsSaving(false);
     }
@@ -216,9 +216,9 @@ const AdminQuestionGenerator: React.FC = () => {
             const parsed = JSON.parse(ev.target?.result as string);
             if (Array.isArray(parsed)) {
                 setGeneratedQuestions(prev => [...prev, ...parsed]);
-                alert("Imported successfully");
+                showToast("Imported successfully", "success");
             }
-        } catch (e) { alert("Invalid JSON"); }
+        } catch (e) { showToast("Invalid JSON", "error"); }
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -364,13 +364,6 @@ const AdminQuestionGenerator: React.FC = () => {
                     </button>
                 </div>
              </div>
-
-             {saveStatus && (
-               <div className={`p-4 mb-4 rounded-xl border flex items-center gap-2 ${saveStatus.type === 'success' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
-                  {saveStatus.type === 'success' ? <CheckCircle size={20}/> : <XCircle size={20}/>}
-                  <span className="font-bold">{saveStatus.msg}</span>
-               </div>
-             )}
 
              <div className="grid gap-4">
                 {generatedQuestions.slice().reverse().map((q, idx) => (
